@@ -24,12 +24,15 @@ export function MapPreview({ markers, currentDisaster, onMarkerClick, onOpenFull
           </p>
         </div>
 
-        <MapComponent
-          markers={markers}
-          currentDisaster={currentDisaster}
-          compact={true}
-          onMarkerClick={onMarkerClick}
-        />
+        <div className="h-full w-full">
+          <MapComponent
+            markers={markers}
+            currentDisaster={currentDisaster}
+            compact={true}
+            onMarkerClick={onMarkerClick}
+            className="h-full w-full" // Ensure the MapComponent takes full height and width
+          />
+        </div>
 
         <div className="absolute bottom-4 right-4">
           <Button size="sm" onClick={onOpenFullMap} className="bg-white text-gray-800 hover:bg-gray-100 shadow-md">
@@ -40,4 +43,3 @@ export function MapPreview({ markers, currentDisaster, onMarkerClick, onOpenFull
     </div>
   )
 }
-

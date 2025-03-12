@@ -1,0 +1,74 @@
+{
+    "disaster_reports": [
+      {
+        "type": "earthquake",
+        "location": {
+          "latitude": 31.7917,
+          "longitude": -7.0926,
+          "city": "Marrakech",
+          "region": "Marrakech-Safi",
+          "country": "Morocco"
+        },
+        "image_url": "https://example.com/earthquake_marrakech.jpg",
+        "timestamp": "2024-10-15T22:45:00Z",
+        "damage_types": ["earthquake"],
+        "damage_level": "major damage"
+      },
+      {
+        "type": "flood",
+        "location": {
+          "latitude": 33.5731,
+          "longitude": -7.5898,
+          "city": "Casablanca",
+          "region": "Casablanca-Settat",
+          "country": "Morocco"
+        },
+        "image_url": "https://example.com/flood_casablanca.jpg",
+        "timestamp": "2024-09-20T10:30:00Z",
+        "damage_types": ["flooding"],
+        "damage_level": "minor damage"
+      },
+      {
+        "type": "wildfire",
+        "location": {
+          "latitude": 35.7595,
+          "longitude": -5.8339,
+          "city": "Tangier",
+          "region": "Tanger-Tetouan-Al Hoceima",
+          "country": "Morocco"
+        },
+        "image_url": "https://example.com/wildfire_tangier.jpg",
+        "timestamp": "2024-08-05T14:00:00Z",
+        "damage_types": ["wildfire"],
+        "damage_level": "destroyed"
+      },
+      {
+        "type": "storm",
+        "location": {
+          "latitude": 34.0209,
+          "longitude": -6.8416,
+          "city": "Rabat",
+          "region": "Rabat-Salé-Kénitra",
+          "country": "Morocco"
+        },
+        "image_url": "https://example.com/storm_rabat.jpg",
+        "timestamp": "2024-07-12T03:00:00Z",
+        "damage_types": ["wind", "flooding"],
+        "damage_level": "major damage"
+      },
+      {
+        "type": "heatwave",
+        "location": {
+          "latitude": 30.4278,
+          "longitude": -9.5981,
+          "city": "Agadir",
+          "region": "Souss-Massa",
+          "country": "Morocco"
+        },
+        "image_url": "https://example.com/heatwave_agadir.jpg",
+        "timestamp": "2024-06-28T12:00:00Z",
+        "damage_types": ["extreme heat"],
+        "damage_level": "no damage"
+      }
+    ]
+  }

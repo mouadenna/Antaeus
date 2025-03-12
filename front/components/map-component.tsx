@@ -23,9 +23,10 @@ interface MapComponentProps {
   currentDisaster: string | null
   compact?: boolean
   onMarkerClick?: (marker: MapMarker) => void
+  className?: string // Add className prop
 }
 
-export default function MapComponent({ markers, currentDisaster, compact = false, onMarkerClick }: MapComponentProps) {
+export default function MapComponent({ markers, currentDisaster, compact = false, onMarkerClick, className }: MapComponentProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -219,7 +220,7 @@ export default function MapComponent({ markers, currentDisaster, compact = false
 
   return (
     <div
-      className={`relative ${compact ? "h-[calc(100vh-280px)]" : "h-[calc(100vh-200px)]"} w-full overflow-hidden rounded-lg bg-white shadow-lg`}
+      className={`relative ${compact ? "h-[calc(100vh-280px)]" : "h-[calc(100vh-200px)]"} w-full overflow-hidden rounded-lg bg-white shadow-lg ${className}`}
     >
       {/* Loading indicator */}
       {loading && (
@@ -288,4 +289,3 @@ export default function MapComponent({ markers, currentDisaster, compact = false
     </div>
   )
 }
-

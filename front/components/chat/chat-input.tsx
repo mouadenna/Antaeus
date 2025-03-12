@@ -33,7 +33,7 @@ export function ChatInput({ emergencyMode, onSendMessage }: ChatInputProps) {
   }
 
   return (
-    <div className="flex justify-center items-center bg-white">
+    <div className="flex justify-center items-center bg-white pl-1 pb-1">
       <Input
         type="text"
         placeholder={emergencyMode ? "Describe the emergency situation..." : "Type your message..."}
@@ -63,4 +63,3 @@ export function ChatInput({ emergencyMode, onSendMessage }: ChatInputProps) {
     </div>
   )
 }
-

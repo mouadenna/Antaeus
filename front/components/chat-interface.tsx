@@ -1,6 +1,7 @@
-"use client"
 
-import { useState } from "react"
+"use client"
+//chat-interface
+import { useState, useEffect } from "react"
 import { Tabs, TabsContent } from "@/components/ui/tabs"
 import Sidebar from "./sidebar"
 import AlertsPanel from "./alerts-panel"
@@ -13,13 +14,14 @@ import NotificationSystem, { useNotifications } from "./notification-system"
 import { AppHeader } from "./chat/app-header"
 import { AppTabs } from "./chat/app-tabs"
 import { ChatContainer } from "./chat/chat-container"
-import { faqSuggestions, chatResponses, notificationMessages } from "@/data/chat-data"
-import { getMarkersByDisasterType } from "@/data/map-data"
+import { faqSuggestions, notificationMessages } from "@/data/chat-data"
+// (Removed unused import)
+import { initializeAgent } from './chat/agent';
+import { useMessageProcessor } from './chat/useMessageProcessor';
 
 export default function ChatInterface() {
-  const [inputState, setInputState] = useState("")
-  const [bubbleColor, setBubbleColor] = useState("bg-gray-100")
-  const [messages, setMessages] = useState<string[]>([])
+  const [inputState] = useState("")
+  const [bubbleColor] = useState("bg-gray-100")
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activeTab, setActiveTab] = useState("dashboard")
   const [emergencyMode, setEmergencyMode] = useState(false)
@@ -28,87 +30,24 @@ export default function ChatInterface() {
   const [userRole, setUserRole] = useState<"user" | "admin">("user")
   const { notifications, addNotification, removeNotification } = useNotifications()
 
+  // Initialize the agent and message processor
+  const [executor, setExecutor] = useState<any>(null)
+  const { messages, handleSend } = useMessageProcessor(executor)
+
+  useEffect(() => {
+    const initAgent = async () => {
+      const agent = await initializeAgent()
+      setExecutor(agent)
+    }
+    initAgent()
+  }, [])
+
   const handleFAQ = (question: string) => {
-    setMessages([...messages, question])
-
-    // Simulate response based on the question
-    setTimeout(() => {
-      let response = ""
-
-      if (question.includes("report")) {
-        response = chatResponses.emergency
-        addNotification(notificationMessages.emergencyMode)
-      } else if (question.includes("shelters")) {
-        response = chatResponses.shelter
-        setMapMarkers(getMarkersByDisasterType("flood").filter((marker) => marker.type === "shelter"))
-        addNotification(notificationMessages.sheltersLocated)
-      } else if (question.includes("supplies")) {
-        response = chatResponses.supplies
-        addNotification(notificationMessages.resourcesAvailable)
-      } else {
-        response = chatResponses.default
-      }
-
-      setMessages((prev) => [...prev, response])
-    }, 1000)
-  }
-
-  const processMessage = (message: string) => {
-    const lowerMessage = message.toLowerCase()
-
-    setTimeout(() => {
-      let response = ""
-
-      if (lowerMessage.includes("emergency") || lowerMessage.includes("disaster")) {
-        setEmergencyMode(true)
-        response = chatResponses.emergency
-        addNotification(notificationMessages.emergencyMode)
-      } else if (lowerMessage.includes("flood")) {
-        setCurrentDisaster("Flood")
-        response = chatResponses.flood
-        setMapMarkers(getMarkersByDisasterType("flood"))
-        addNotification(notificationMessages.floodAlert)
-      } else if (lowerMessage.includes("fire")) {
-        setCurrentDisaster("Fire")
-        response = chatResponses.fire
-        setMapMarkers(getMarkersByDisasterType("fire"))
-        addNotification(notificationMessages.fireAlert)
-      } else if (lowerMessage.includes("earthquake")) {
-        setCurrentDisaster("Earthquake")
-        response = chatResponses.earthquake
-        setMapMarkers(getMarkersByDisasterType("earthquake"))
-        addNotification(notificationMessages.earthquakeAlert)
-      } else if (lowerMessage.includes("shelter") || lowerMessage.includes("evacuation")) {
-        response = chatResponses.shelter
-        setMapMarkers(
-          getMarkersByDisasterType(currentDisaster).filter(
-            (marker) => marker.type === "shelter" || marker.type === "evacuation",
-          ),
-        )
-        addNotification(notificationMessages.sheltersLocated)
-      } else if (lowerMessage.includes("resource") || lowerMessage.includes("supplies")) {
-        response = chatResponses.supplies
-        addNotification(notificationMessages.resourcesAvailable)
-      } else if (lowerMessage.includes("alert") || lowerMessage.includes("warning")) {
-        response = chatResponses.alerts
-        addNotification(notificationMessages.alertsPanel)
-      } else if (lowerMessage.includes("voice") || lowerMessage.includes("audio") || lowerMessage.includes("record")) {
-        response = chatResponses.voice
-      } else if (lowerMessage.includes("dashboard") || lowerMessage.includes("overview")) {
-        response = chatResponses.dashboard
-      } else if (lowerMessage.includes("help")) {
-        response = chatResponses.help
-      } else {
-        response = chatResponses.default
-      }
-
-      setMessages((prev) => [...prev, response])
-    }, 1000)
+    handleSend(question)
   }
 
   const handleSendMessage = (message: string) => {
-    setMessages([...messages, message])
-    processMessage(message)
+    handleSend(message)
   }
 
   const toggleSidebar = () => {
@@ -116,11 +55,9 @@ export default function ChatInterface() {
   }
 
   const handleNewChat = () => {
-    setMessages([])
     setEmergencyMode(false)
     setCurrentDisaster(null)
     setMapMarkers([])
-    // Don't change the active tab - stay in chat
     if (activeTab !== "chat") {
       setActiveTab("chat")
     }
@@ -128,7 +65,7 @@ export default function ChatInterface() {
 
   const activateEmergencyMode = () => {
     setEmergencyMode(true)
-    setMessages([...messages, chatResponses.emergency])
+    handleSend("Activate emergency mode")
     addNotification(notificationMessages.emergencyMode)
   }
 
@@ -158,10 +95,7 @@ export default function ChatInterface() {
       setCurrentDisaster(reportData.emergencyType)
     }
 
-    setMessages((prev) => [
-      ...prev,
-      `I've reported a ${reportData.severity.toLowerCase()} ${reportData.emergencyType.toLowerCase()} emergency at ${reportData.location}.`,
-    ])
+    handleSend(`I've reported a ${reportData.severity.toLowerCase()} ${reportData.emergencyType.toLowerCase()} emergency at ${reportData.location}.`)
 
     addNotification({
       title: "Emergency Report Submitted",
@@ -170,10 +104,9 @@ export default function ChatInterface() {
     })
 
     setTimeout(() => {
-      setMessages((prev) => [
-        ...prev,
-        `Thank you for your report. Emergency services have been notified about the ${reportData.emergencyType.toLowerCase()} at ${reportData.location}. Your report has been added to the map. Please stay safe and follow any evacuation instructions.`,
-      ])
+      handleSend(
+        `Thank you for your report. Emergency services have been notified about the ${reportData.emergencyType.toLowerCase()} at ${reportData.location}. Your report has been added to the map. Please stay safe and follow any evacuation instructions.`
+      )
     }, 1000)
   }
 
@@ -206,7 +139,7 @@ export default function ChatInterface() {
 
         <NotificationSystem notifications={notifications} removeNotification={removeNotification} />
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full max-w-6xl flex-1 flex flex-col">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
           <div className="sticky top-[57px] z-10 bg-background border-b px-4 py-2">
             <AppTabs userRole={userRole} />
           </div>
@@ -214,27 +147,27 @@ export default function ChatInterface() {
           <div className="flex-1 p-4">
             <TabsContent value="dashboard" className="m-0">
               {userRole === "user" ? (
-                <UserDashboard currentDisaster={currentDisaster} onNavigate={handleNavigate} />
+          <UserDashboard currentDisaster={currentDisaster} onNavigate={handleNavigate} />
               ) : (
-                <AdminDashboard currentDisaster={currentDisaster} onNavigate={handleNavigate} />
+          <AdminDashboard currentDisaster={currentDisaster} onNavigate={handleNavigate} />
               )}
             </TabsContent>
 
-            <TabsContent value="chat" className="m-0 p-0  items-end">
+            <TabsContent value="chat" className="m-0 p-0 items-end">
               <ChatContainer
-              messages={messages}
-              emergencyMode={emergencyMode}
-              userRole={userRole}
-              mapMarkers={mapMarkers}
-              currentDisaster={currentDisaster}
-              faqSuggestions={faqSuggestions}
-              bubbleColor={bubbleColor}
-              onSendMessage={handleSendMessage}
-              onFAQSelect={handleFAQ}
-              onActivateEmergency={activateEmergencyMode}
-              onNewChat={handleNewChat}
-              onMarkerClick={handleMarkerClick}
-              onOpenFullMap={() => handleNavigate("map")}
+          messages={messages.map((msg) => msg.text)}
+          emergencyMode={emergencyMode}
+          mapMarkers={mapMarkers}
+          currentDisaster={currentDisaster}
+          faqSuggestions={faqSuggestions}
+          bubbleColor={bubbleColor}
+          onSendMessage={handleSendMessage}
+          onFAQSelect={handleFAQ}
+          onActivateEmergency={activateEmergencyMode}
+          onNewChat={handleNewChat}
+          onMarkerClick={handleMarkerClick}
+          onOpenFullMap={() => handleNavigate("map")}
+          userRole={"user"}
               />
             </TabsContent>
 
@@ -268,4 +201,3 @@ export default function ChatInterface() {
     </>
   )
 }
-

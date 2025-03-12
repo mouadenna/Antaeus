@@ -47,7 +47,7 @@ export function ChatContainer({
         onNewChat={onNewChat}
       />
 
-      <div className="flex flex-col md:flex-row flex-grow overflow-hidden">
+      <div className="flex flex-col md:flex-row gap-4 flex-grow overflow-hidden">
         <div className="flex flex-col w-full md:w-1/2 h-full">
           <div className="flex-grow overflow-hidden flex flex-col">
             {messages.length > 0 ? (
@@ -78,4 +78,3 @@ export function ChatContainer({
     </div>
   )
 }
-

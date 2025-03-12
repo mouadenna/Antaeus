@@ -73,6 +73,8 @@ export default function UserDashboard({ currentDisaster, onNavigate }: UserDashb
   const alertsWithIcons = activeAlerts.map((alert) => ({
     ...alert,
     icon: getAlertIcon(alert.type),
+    location: alert.area || "Unknown location",
+    time: alert.expires || "Unknown time",
   }))
 
   return (
@@ -88,7 +90,7 @@ export default function UserDashboard({ currentDisaster, onNavigate }: UserDashb
       {/* Nearby Resources and Active Alerts */}
       <DashboardSection>
         <DashboardGrid>
-          <NearbyResourcesList resources={nearbyResources} onFindMore={() => onNavigate("map")} />
+          <NearbyResourcesList resources={nearbyResources.map((resource) => ({ ...resource, type: resource.type as "shelter" | "medical" | "supplies" }))} onFindMore={() => onNavigate("map")} />
 
           <AlertsList
             title="Active Alerts"

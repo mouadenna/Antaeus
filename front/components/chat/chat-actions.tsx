@@ -19,13 +19,13 @@ export function ChatActions({ emergencyMode, userRole, onActivateEmergency, onNe
           <span>Emergency</span>
         </Button>
       )} */}
-      <Button
+      {/* <Button
         variant="outline"
         className="hover:bg-stone-500 font-semibold hover:text-gray-100 border-2 border-gray-500 fixed left-12"
         onClick={onNewChat}
       >
         <span>New Chat</span>
-      </Button>
+      </Button> */}
     </div>
   )
 }
