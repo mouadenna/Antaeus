@@ -70,7 +70,6 @@ export const initializeAgent = async () => {
     const llm = new ChatOpenAI({
       model: "gpt-4o-mini",
       temperature: 0,
-      openAIApiKey: "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", // Replace with your OpenAI API key
     });
     
     const agent = await initializeAgentExecutorWithOptions(
