@@ -1,312 +1,272 @@
 "use client"
 
-import { useState } from "react"
-import {
-  AlertTriangle,
-  Bell,
-  Compass,
-  Home,
-  MapPin,
-  Mic,
-  Package,
-  Shield,
-  Truck,
-  Users,
-  Waves,
-  Wind,
-  Flame,
-} from "lucide-react"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { DashboardHeader } from "./dashboard/dashboard-header"
-import { QuickActionsGrid } from "./dashboard/quick-actions-grid"
-import { StatsSummary } from "./dashboard/stats-summary"
-import { DashboardGrid } from "./dashboard/dashboard-grid"
-import { AlertsList } from "./dashboard/alerts-list"
-import { WeatherAlertsList } from "./dashboard/weather-alerts-list"
-import { TimelineList } from "./dashboard/timeline-list"
-import { ResourceAllocation } from "./dashboard/resource-allocation"
-import { DashboardCard } from "./dashboard/dashboard-card"
+import { AlertTriangle, Users, MapPin, Package, Activity, ArrowRight, BarChart3 } from "lucide-react"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import {
-  emergencyStats,
-  resourceStats,
-  recentReports,
-  teamStatus,
-  weatherAlerts,
-  timelineEvents,
-} from "@/data/dashboard-data"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
 
-interface DashboardProps {
+interface AdminDashboardProps {
   currentDisaster: string | null
   onNavigate: (tab: string) => void
 }
 
-export default function Dashboard({ currentDisaster, onNavigate }: DashboardProps) {
-  const [activeView, setActiveView] = useState("overview")
-  const [timeRange, setTimeRange] = useState("24h")
-  const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString())
-
-  const handleRefresh = () => {
-    // In a real app, this would fetch fresh data
-    setLastUpdated(new Date().toLocaleTimeString())
-  }
-
-  // Quick actions configuration
-  const quickActions = [
-    {
-      icon: <MapPin className="h-8 w-8 text-blue-600" />,
-      title: "View Map",
-      onClick: () => onNavigate("map"),
-    },
-    {
-      icon: <Mic className="h-8 w-8 text-indigo-600" />,
-      title: "Voice Report",
-      onClick: () => onNavigate("voice-report"),
-    },
-    {
-      icon: <Bell className="h-8 w-8 text-amber-600" />,
-      title: "Alerts",
-      badgeCount: weatherAlerts.length > 0 ? weatherAlerts.length : undefined,
-      onClick: () => onNavigate("alerts"),
-    },
-    {
-      icon: <Package className="h-8 w-8 text-purple-600" />,
-      title: "Resources",
-      badgeCount: emergencyStats.pendingRequests > 0 ? emergencyStats.pendingRequests : undefined,
-      badgeVariant: "destructive" as "destructive",
-      onClick: () => onNavigate("resources"),
-    },
-  ]
-
-  // Stats configuration
-  const statsItems = [
-    { label: "Active Incidents", value: emergencyStats.activeIncidents, color: "text-red-600" },
-    { label: "Pending Requests", value: emergencyStats.pendingRequests, color: "text-amber-600" },
-    { label: "Deployed Teams", value: emergencyStats.deployedTeams, color: "text-blue-600" },
-    { label: "Affected Areas", value: emergencyStats.affectedAreas, color: "text-purple-600" },
-    { label: "Evacuation Centers", value: emergencyStats.evacuationCenters, color: "text-green-600" },
-    { label: "People Evacuated", value: emergencyStats.peopleEvacuated, color: "text-indigo-600" },
-  ]
-
-  // Format resources for ResourceAllocation component
-  const formattedResources = {
-    water: { label: "Water Supplies", ...resourceStats.water },
-    food: { label: "Food Kits", ...resourceStats.food },
-    medical: { label: "Medical Supplies", ...resourceStats.medical },
-    shelter: { label: "Shelter Capacity", ...resourceStats.shelter },
-  }
-
-  // Get disaster icon
-  const getDisasterIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case "flood":
-        return <Waves className="h-5 w-5" />
-      case "fire":
-        return <Flame className="h-5 w-5" />
-      case "building damage":
-        return <Home className="h-5 w-5" />
-      case "medical emergency":
-        return <Shield className="h-5 w-5" />
-      case "road blockage":
-        return <Compass className="h-5 w-5" />
-      case "heavy rain":
-        return <Waves className="h-5 w-5" />
-      case "strong winds":
-        return <Wind className="h-5 w-5" />
-      default:
-        return <AlertTriangle className="h-5 w-5" />
-    }
-  }
-
-  // Add icons to reports
-  const reportsWithIcons = recentReports.map((report) => ({
-    ...report,
-    icon: getDisasterIcon(report.type),
-    reportMethod: report.reportMethod === "voice" ? "voice" as const : "text" as const,
-  }))
-
-  // Add icons to weather alerts
-  const weatherAlertsWithIcons = weatherAlerts.map((alert) => ({
-    ...alert,
-    icon: getDisasterIcon(alert.type),
-  }))
-
+export default function AdminDashboard({ currentDisaster, onNavigate }: AdminDashboardProps) {
   return (
     <div className="w-full max-w-6xl mx-auto">
       {/* Dashboard Header */}
-      <DashboardHeader
-        title="Disaster Response Dashboard"
-        currentDisaster={currentDisaster}
-        lastUpdated={lastUpdated}
-        timeRange={timeRange}
-        onTimeRangeChange={setTimeRange}
-        onRefresh={handleRefresh}
-      />
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+        <div>
+          <h1 className="text-2xl font-bold">Emergency Management Dashboard</h1>
+          <p className="text-gray-500">
+            {currentDisaster
+              ? `Active response for ${currentDisaster}`
+              : "Monitor and manage emergency response operations"}
+          </p>
+        </div>
 
-      {/* Dashboard Tabs */}
-      <Tabs value={activeView} onValueChange={setActiveView} className="mb-6">
-        <TabsList className="grid grid-cols-3 md:w-[400px]">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="resources">Resources</TabsTrigger>
-          <TabsTrigger value="teams">Teams</TabsTrigger>
-        </TabsList>
-      </Tabs>
+        <div className="mt-4 md:mt-0">
+          <Button className="bg-red-600 hover:bg-red-700">Activate Emergency Response</Button>
+        </div>
+      </div>
 
-      {/* Quick Action Cards */}
-      <QuickActionsGrid actions={quickActions} />
-
-      {/* Main Dashboard Content */}
-      <TabsContent value="overview" className="mt-0">
-        {/* Status Summary Cards */}
-        <StatsSummary stats={statsItems} />
-
-        {/* Recent Reports and Weather Alerts */}
-        <DashboardGrid>
-          <AlertsList
-            title="Recent Reports"
-            alerts={reportsWithIcons}
-            onViewAll={() => onNavigate("map")}
-            onViewDetails={(id) => console.log("View details for report", id)}
-          />
-
-          <div className="space-y-6">
-            <WeatherAlertsList alerts={weatherAlertsWithIcons} onViewAll={() => onNavigate("alerts")} />
-
-            <TimelineList
-              title="Response Timeline"
-              events={timelineEvents.map((event) => ({
-                ...event,
-                icon:
-                  event.icon === "alert-triangle" ? (
-                    <AlertTriangle className="h-5 w-5 text-blue-600" />
-                  ) : event.icon === "users" ? (
-                    <Users className="h-5 w-5 text-indigo-600" />
-                  ) : event.icon === "home" ? (
-                    <Home className="h-5 w-5 text-green-600" />
-                  ) : (
-                    <Truck className="h-5 w-5 text-purple-600" />
-                  ),
-              }))}
-            />
-          </div>
-        </DashboardGrid>
-      </TabsContent>
-
-      <TabsContent value="resources" className="mt-0">
-        <DashboardGrid>
-          <ResourceAllocation
-            resources={formattedResources}
-            onViewDetails={() => onNavigate("resources")}
-            onRequestSupplies={() => console.log("Request supplies")}
-          />
-
-          <DashboardCard title="Distribution Centers" description="Active supply distribution points">
-            <div className="space-y-4">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-full bg-blue-100">
-                  <MapPin className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between">
-                    <h4 className="font-medium">Central Distribution Hub</h4>
-                    <Button variant="outline" size="sm">
-                      View on Map
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-500">City Hall, Downtown</p>
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Capacity: High</span>
-                    <span>Open 24/7</span>
-                  </div>
-                </div>
+      {/* Emergency Status */}
+      {currentDisaster && (
+        <Card className="mb-6 border-red-200 bg-red-50">
+          <CardHeader className="pb-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between">
+              <CardTitle className="flex items-center text-red-800">
+                <AlertTriangle className="mr-2 h-5 w-5 text-red-600" />
+                {currentDisaster} Emergency Active
+              </CardTitle>
+              <Badge className="bg-red-200 text-red-800 hover:bg-red-300 mt-2 md:mt-0">Level 3 Response</Badge>
+            </div>
+            <CardDescription className="text-red-700">
+              Emergency response is in progress. Coordinate resources and monitor situation.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-red-700 font-medium">Duration:</span>
+                <span className="ml-2">12 hours, 34 minutes</span>
               </div>
-
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-full bg-blue-100">
-                  <MapPin className="h-5 w-5 text-blue-600" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between">
-                    <h4 className="font-medium">North Community Center</h4>
-                    <Button variant="outline" size="sm">
-                      View on Map
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-500">Highland District</p>
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>Capacity: Medium</span>
-                    <span>Open 8AM-8PM</span>
-                  </div>
-                </div>
+              <div>
+                <span className="text-red-700 font-medium">Affected Areas:</span>
+                <span className="ml-2">3 Districts</span>
+              </div>
+              <div>
+                <span className="text-red-700 font-medium">Evacuation Status:</span>
+                <span className="ml-2">In Progress (64%)</span>
+              </div>
+              <div>
+                <span className="text-red-700 font-medium">Incidents:</span>
+                <span className="ml-2">27 Reported</span>
               </div>
             </div>
-          </DashboardCard>
-        </DashboardGrid>
-      </TabsContent>
+          </CardContent>
+          <CardFooter className="flex justify-between">
+            <Button variant="outline" className="border-red-300 text-red-800 hover:bg-red-100">
+              View Situation Report
+            </Button>
+            <Button className="bg-red-600 hover:bg-red-700">Manage Response</Button>
+          </CardFooter>
+        </Card>
+      )}
 
-      <TabsContent value="teams" className="mt-0">
-        <DashboardGrid>
-          <DashboardCard
-            title="Team Status"
-            description="Active response teams and their locations"
-            footer={
-              <Button variant="outline" size="sm" className="w-full">
-                Manage Teams
-              </Button>
-            }
-          >
-            <div className="space-y-4">
-              {teamStatus.map((team) => (
-                <div key={team.id} className="flex items-start gap-3">
-                  <div className="p-2 rounded-full bg-indigo-100">
-                    <Users className="h-5 w-5 text-indigo-600" />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex justify-between">
-                      <h4 className="font-medium">{team.name}</h4>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-                        Contact
-                      </Button>
-                    </div>
-                    <div className="flex justify-between text-sm text-gray-500 mt-1">
-                      <span>{team.members} members</span>
-                      <span>{team.location}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+      {/* Key Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Affected Population</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline">
+              <span className="text-2xl font-bold">12,450</span>
+              <span className="ml-2 text-xs text-red-600">+1,230 in last 2h</span>
             </div>
-          </DashboardCard>
+            <div className="mt-2 flex items-center text-xs text-gray-500">
+              <Users className="h-3 w-3 mr-1" />
+              <span>3,200 in shelters</span>
+            </div>
+          </CardContent>
+        </Card>
 
-          <DashboardCard
-            title="Team Assignments"
-            description="Current mission assignments and status"
-            footer={
-              <Button variant="outline" size="sm" className="w-full">
-                Create New Assignment
-              </Button>
-            }
-          >
-            <div className="space-y-4">
-              <div className="border rounded-md p-3">
-                <div className="flex justify-between items-start">
-                  <h4 className="font-medium">Search & Rescue Operation</h4>
-                  <Button variant="outline" size="sm" className="h-7 px-2 text-xs">
-                    View Details
-                  </Button>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Resource Allocation</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline">
+              <span className="text-2xl font-bold">76%</span>
+              <span className="ml-2 text-xs text-amber-600">Critical supplies at 42%</span>
+            </div>
+            <div className="mt-2 flex items-center text-xs text-gray-500">
+              <Package className="h-3 w-3 mr-1" />
+              <span>8 distribution centers active</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Emergency Calls</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline">
+              <span className="text-2xl font-bold">342</span>
+              <span className="ml-2 text-xs text-green-600">94% response rate</span>
+            </div>
+            <div className="mt-2 flex items-center text-xs text-gray-500">
+              <Activity className="h-3 w-3 mr-1" />
+              <span>Avg. response time: 8 min</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-gray-500">Evacuation Progress</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-baseline mb-2">
+              <span className="text-2xl font-bold">64%</span>
+              <span className="ml-2 text-xs text-blue-600">Target: 100% by 18:00</span>
+            </div>
+            <Progress value={64} className="h-2" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Incidents */}
+      <h2 className="text-lg font-semibold mb-4">Recent Incidents</h2>
+      <div className="space-y-4 mb-8">
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start">
+              <div className="p-2 rounded-full bg-red-100 mr-4">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <div className="flex-grow">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
+                  <h3 className="font-medium">Building Collapse Reported</h3>
+                  <Badge className="bg-red-100 text-red-800 mt-1 md:mt-0">High Priority</Badge>
                 </div>
-                <p className="text-sm text-gray-600 mt-1">
-                  Search & Rescue Alpha team conducting operations in Downtown area
+                <p className="text-sm text-gray-600 mb-2">
+                  Structural damage reported at 123 Main St. Multiple people potentially trapped. First responders en
+                  route.
                 </p>
-                <div className="flex justify-between text-xs text-gray-500 mt-2">
-                  <span>Started: 2 hours ago</span>
-                  <span>Priority: High</span>
+                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                  <div className="flex items-center">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    <span>Downtown District</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span>Reported: 10 minutes ago</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span>Status: Response in progress</span>
+                  </div>
                 </div>
               </div>
+              <Button variant="ghost" size="sm" className="ml-2 flex-shrink-0">
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </div>
-          </DashboardCard>
-        </DashboardGrid>
-      </TabsContent>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-start">
+              <div className="p-2 rounded-full bg-amber-100 mr-4">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+              </div>
+              <div className="flex-grow">
+                <div className />
+              </div>
+              <div className="flex-grow">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-2">
+                  <h3 className="font-medium">Road Flooding on Highway 101</h3>
+                  <Badge className="bg-amber-100 text-amber-800 mt-1 md:mt-0">Medium Priority</Badge>
+                </div>
+                <p className="text-sm text-gray-600 mb-2">
+                  Multiple lanes flooded near exit 25. Traffic backed up for 3 miles. Road crews dispatched.
+                </p>
+                <div className="flex flex-wrap gap-2 text-xs text-gray-500">
+                  <div className="flex items-center">
+                    <MapPin className="h-3 w-3 mr-1" />
+                    <span>North District</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span>Reported: 45 minutes ago</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span>Status: Mitigation in progress</span>
+                  </div>
+                </div>
+              </div>
+              <Button variant="ghost" size="sm" className="ml-2 flex-shrink-0">
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Resource Status */}
+      <h2 className="text-lg font-semibold mb-4">Resource Status</h2>
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Resource Allocation</CardTitle>
+          <CardDescription>Current status of emergency resources and supplies</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium">Emergency Shelters</span>
+                <span className="text-sm text-gray-500">4/6 Active</span>
+              </div>
+              <Progress value={66.7} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium">Medical Supplies</span>
+                <span className="text-sm text-gray-500">42% Remaining</span>
+              </div>
+              <Progress value={42} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium">Food & Water</span>
+                <span className="text-sm text-gray-500">78% Remaining</span>
+              </div>
+              <Progress value={78} className="h-2" />
+            </div>
+            <div>
+              <div className="flex justify-between mb-1">
+                <span className="text-sm font-medium">Emergency Personnel</span>
+                <span className="text-sm text-gray-500">85% Deployed</span>
+              </div>
+              <Progress value={85} className="h-2" />
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter className="flex justify-between">
+          <Button variant="outline" onClick={() => onNavigate("resources")}>
+            View Resource Details
+          </Button>
+          <Button>Manage Resources</Button>
+        </CardFooter>
+      </Card>
+
+      <div className="flex justify-end">
+        <Button className="flex items-center gap-2">
+          <BarChart3 className="h-4 w-4" />
+          View Full Analytics
+        </Button>
+      </div>
     </div>
   )
 }

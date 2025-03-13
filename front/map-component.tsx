@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react"
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css"
+import { Button } from "@/components/ui/button"
+import { X } from "lucide-react"
 
 // Mapbox access token
 export const MAPBOX_ACCESS_TOKEN =
@@ -24,7 +26,7 @@ interface MapComponentProps {
   markers: MapMarker[]
   currentDisaster: string | null
   onMarkerClick: (marker: MapMarker) => void
-  onClose?: () => void
+  onClose: () => void
   geometryCode?: string
 }
 
@@ -46,9 +48,6 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
       style: "mapbox://styles/mapbox/streets-v11",
       center: [-74.5, 40], // Default center (New York area)
       zoom: 9,
-      // Add animation options
-      animate: true,
-      fadeDuration: 1000,
     })
 
     newMap.on("load", () => {
@@ -140,12 +139,7 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
       markers.forEach((marker) => {
         bounds.extend(marker.coordinates)
       })
-      map.current.fitBounds(bounds, {
-        padding: 50,
-        maxZoom: 15,
-        duration: 1500, // Add animation duration in milliseconds
-        essential: true, // Make animation smoother
-      })
+      map.current.fitBounds(bounds, { padding: 50, maxZoom: 15 })
     }
   }, [markers, mapLoaded, onMarkerClick])
 
@@ -155,7 +149,7 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
 
     try {
       // Remove existing route layer if it exists and no geometryCode is provided
-      if (!geometryCode) {
+      if (!geometryCode || geometryCode.trim() === "") {
         if (routeLayerRef.current && map.current.getLayer("route")) {
           map.current.removeLayer("route")
           if (map.current.getLayer("route-glow")) {
@@ -172,50 +166,25 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
       import("@mapbox/polyline").then((polylineModule) => {
         const polyline = polylineModule.default
 
-        try {
-          console.log("Processing geometryCode:", geometryCode.substring(0, 20) + "...")
+        console.log("Processing geometryCode:", geometryCode.substring(0, 20) + "...")
 
-          // Decode the polyline
-          const decodedCoordinates = polyline.decode(geometryCode)
-          console.log(`Decoded ${decodedCoordinates.length} coordinates`)
+        // Decode the polyline
+        const decodedCoordinates = polyline.decode(geometryCode)
+        console.log(`Decoded ${decodedCoordinates.length} coordinates`)
 
-          if (decodedCoordinates.length === 0) {
-            console.warn("No coordinates decoded from geometryCode")
-            return
-          }
+        if (decodedCoordinates.length === 0) {
+          console.warn("No coordinates decoded from geometryCode")
+          return
+        }
 
-          // Convert [lat, lng] to [lng, lat] for Mapbox
-          // This is critical - Mapbox expects [longitude, latitude] order
-          const mapboxCoordinates = decodedCoordinates
-            .map(([lat, lng]) => {
-              // Validate coordinates
-              if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) {
-                console.warn("Invalid coordinate detected:", lat, lng)
-                return null
-              }
+        // Convert [lat, lng] to [lng, lat] for Mapbox
+        const mapboxCoordinates = decodedCoordinates.map(([lat, lng]) => [lng, lat])
 
-              // Ensure coordinates are within valid ranges
-              const validLat = Math.max(-90, Math.min(90, lat))
-              const validLng = Math.max(-180, Math.min(180, lng))
-
-              return [validLng, validLat] // Mapbox uses [lng, lat] order
-            })
-            .filter((coord) => coord !== null) as [number, number][]
-
-          console.log("Transformed coordinates for Mapbox:", mapboxCoordinates.slice(0, 3))
-
-          // Wait for map to be fully loaded
-          if (!map.current!.loaded()) {
-            map.current!.once("load", () => {
-              // Add a slight delay before adding the polyline for better visual transition
-              setTimeout(() => addPolylineToMap(mapboxCoordinates), 300)
-            })
-          } else {
-            // Add a slight delay before adding the polyline for better visual transition
-            setTimeout(() => addPolylineToMap(mapboxCoordinates), 300)
-          }
-        } catch (decodeError) {
-          console.error("Error decoding polyline:", decodeError)
+        // Wait for map to be fully loaded
+        if (!map.current!.loaded()) {
+          map.current!.once("load", () => addPolylineToMap(mapboxCoordinates))
+        } else {
+          addPolylineToMap(mapboxCoordinates)
         }
       })
     } catch (error) {
@@ -224,105 +193,62 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
   }, [geometryCode, mapLoaded])
 
   // Helper function to add polyline to map
-  const addPolylineToMap = (coordinates: [number, number][]) => {
-    if (!map.current || coordinates.length < 2) {
-      console.warn("Cannot add polyline: map not initialized or insufficient coordinates")
-      return
+  const addPolylineToMap = (coordinates: number[][]) => {
+    if (!map.current) return
+
+    // Remove existing route layer if it exists
+    if (routeLayerRef.current && map.current.getLayer("route")) {
+      map.current.removeLayer("route")
+      map.current.removeSource("route")
+      routeLayerRef.current = false
     }
 
-    try {
-      // Remove existing route layer if it exists
-      if (routeLayerRef.current) {
-        if (map.current.getLayer("route")) {
-          map.current.removeLayer("route")
-        }
-        if (map.current.getLayer("route-glow")) {
-          map.current.removeLayer("route-glow")
-        }
-        if (map.current.getSource("route")) {
-          map.current.removeSource("route")
-        }
-        routeLayerRef.current = false
-      }
-
-      // Add new source and layer
-      map.current.addSource("route", {
-        type: "geojson",
-        data: {
-          type: "Feature",
-          properties: {},
-          geometry: {
-            type: "LineString",
-            coordinates: coordinates,
-          },
+    // Add new source and layer
+    map.current.addSource("route", {
+      type: "geojson",
+      data: {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: coordinates,
         },
-      })
+      },
+    })
 
-      // Add a glow effect by adding multiple layers
-      // First add a wider background layer for the glow effect
-      map.current.addLayer({
-        id: "route-glow",
-        type: "line",
-        source: "route",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": "#ff6666",
-          "line-width": 8,
-          "line-opacity": 0.4,
-          "line-blur": 3,
-        },
-      })
+    map.current.addLayer({
+      id: "route",
+      type: "line",
+      source: "route",
+      layout: {
+        "line-join": "round",
+        "line-cap": "round",
+      },
+      paint: {
+        "line-color": "#ff0000",
+        "line-width": 4,
+        "line-opacity": 0.75,
+      },
+    })
 
-      // Then add the main route line
-      map.current.addLayer({
-        id: "route",
-        type: "line",
-        source: "route",
-        layout: {
-          "line-join": "round",
-          "line-cap": "round",
-        },
-        paint: {
-          "line-color": "#ff0000",
-          "line-width": 4,
-          "line-opacity": 0.9,
-        },
-      })
+    routeLayerRef.current = true
+    console.log("Added new route source and layer")
 
-      routeLayerRef.current = true
-      console.log("Added new route source and layers")
-
-      // Fit the map to the bounds of the polyline with smooth animation
-      const bounds = new mapboxgl.LngLatBounds()
-      coordinates.forEach((coord) => bounds.extend(coord))
-
-      // Check if bounds are valid before fitting
-      if (bounds.isEmpty()) {
-        console.warn("Cannot fit to empty bounds")
-        return
-      }
-
-      map.current.fitBounds(bounds, {
-        padding: 50,
-        maxZoom: 15,
-        duration: 2000, // 2 seconds animation
-        essential: true,
-        animate: true,
-      })
-      console.log("Fitted map to polyline bounds with smooth animation")
-    } catch (error) {
-      console.error("Error adding polyline to map:", error)
-    }
+    // Fit the map to the bounds of the polyline
+    const bounds = new mapboxgl.LngLatBounds()
+    coordinates.forEach((coord) => bounds.extend(coord as [number, number]))
+    map.current.fitBounds(bounds, {
+      padding: 50,
+      maxZoom: 15,
+    })
+    console.log("Fitted map to polyline bounds")
   }
 
   // Helper function to get marker icon SVG
   const getMarkerIcon = (type: string) => {
     switch (type) {
       case "shelter":
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke  width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 20H7a2 2 0 0 1-2-2v-7.08A2 2 0 0 1 7 9h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/><path d="M9 9V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/><path d="M13 20v-5a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v5"/></svg>`
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 20H7a2 2 0 0 1-2-2v-7.08A2 2 0 0 1 7 9h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/><path d="M9 9V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/><path d="M13 20v-5a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v5"/></svg>`
       case "danger":
         return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`
       case "evacuation":
@@ -335,14 +261,17 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
   }
 
   return (
-    <div className="relative w-full h-full bg-white">
-      <div className="absolute top-4 left-4 right-4 z-10 bg-white/90 rounded-lg p-3 shadow-md">
+    <div className="fixed inset-0 z-50 bg-white">
+      <div className="absolute top-4 left-4 right-4 z-10 bg-white/90 rounded-lg p-3 shadow-md flex justify-between items-center">
         <div>
           <h2 className="font-medium text-lg">Disaster Response Map</h2>
           <p className="text-sm text-gray-600">
             {currentDisaster ? `Current disaster: ${currentDisaster}` : "No active disaster"}
           </p>
         </div>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="h-5 w-5" />
+        </Button>
       </div>
 
       <div ref={mapContainer} className="w-full h-full" />

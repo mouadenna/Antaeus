@@ -1,34 +1,24 @@
 "use client"
 
+import { Button } from "@/components/ui/button"
+import type { MapMarker } from "./map-component"
 import { useEffect, useRef, useState } from "react"
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css"
 
-// Mapbox access token
-export const MAPBOX_ACCESS_TOKEN =
+// Use the same Mapbox access token as in map-component.tsx
+const MAPBOX_ACCESS_TOKEN =
   "pk.eyJ1IjoibW91YWRlbm5hIiwiYSI6ImNseDB1d2VuczA0Y3gyaXM0Y2E5Z3A2OWoifQ.nnDPc-c8ndn7lpfEqukeXA"
 
-// Define the marker structure
-export interface MapMarker {
-  id: number
-  title: string
-  coordinates: [number, number] // [longitude, latitude]
-  type: "shelter" | "danger" | "evacuation" | "resource" | "general"
-  details?: string
-  severity?: "low" | "medium" | "high"
-  capacity?: number
-  status?: "open" | "closed" | "full" | "limited"
-}
-
-interface MapComponentProps {
+interface MapPreviewProps {
   markers: MapMarker[]
   currentDisaster: string | null
   onMarkerClick: (marker: MapMarker) => void
-  onClose?: () => void
+  onOpenFullMap: () => void
   geometryCode?: string
 }
 
-export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose, geometryCode }: MapComponentProps) {
+export function MapPreview({ markers, currentDisaster, onMarkerClick, onOpenFullMap, geometryCode }: MapPreviewProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
@@ -37,8 +27,9 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
 
   // Initialize the map
   useEffect(() => {
-    if (!mapContainer.current || map.current) return
+    if (!mapContainer.current || map.current) return // Skip if already initialized or no container
 
+    console.log("Initializing Mapbox map preview")
     mapboxgl.accessToken = MAPBOX_ACCESS_TOKEN
 
     const newMap = new mapboxgl.Map({
@@ -52,14 +43,11 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
     })
 
     newMap.on("load", () => {
-      console.log("Full map loaded")
+      console.log("Mapbox map preview loaded")
       setMapLoaded(true)
     })
 
     map.current = newMap
-
-    // Add navigation controls
-    newMap.addControl(new mapboxgl.NavigationControl(), "top-right")
 
     // Cleanup on unmount
     return () => {
@@ -168,19 +156,19 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
         return
       }
 
+      console.log("Processing geometryCode in preview:", geometryCode.substring(0, 20) + "...")
+
       // Import polyline dynamically to avoid server-side rendering issues
       import("@mapbox/polyline").then((polylineModule) => {
         const polyline = polylineModule.default
 
         try {
-          console.log("Processing geometryCode:", geometryCode.substring(0, 20) + "...")
-
           // Decode the polyline
           const decodedCoordinates = polyline.decode(geometryCode)
-          console.log(`Decoded ${decodedCoordinates.length} coordinates`)
+          console.log(`Decoded ${decodedCoordinates.length} coordinates in preview`)
 
           if (decodedCoordinates.length === 0) {
-            console.warn("No coordinates decoded from geometryCode")
+            console.warn("No coordinates decoded from geometryCode in preview")
             return
           }
 
@@ -219,7 +207,7 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
         }
       })
     } catch (error) {
-      console.error("Error processing polyline:", error)
+      console.error("Error processing polyline in preview:", error)
     }
   }, [geometryCode, mapLoaded])
 
@@ -293,7 +281,7 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
       })
 
       routeLayerRef.current = true
-      console.log("Added new route source and layers")
+      console.log("Added new route source and layers in preview")
 
       // Fit the map to the bounds of the polyline with smooth animation
       const bounds = new mapboxgl.LngLatBounds()
@@ -312,7 +300,7 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
         essential: true,
         animate: true,
       })
-      console.log("Fitted map to polyline bounds with smooth animation")
+      console.log("Fitted map preview to polyline bounds with smooth animation")
     } catch (error) {
       console.error("Error adding polyline to map:", error)
     }
@@ -322,7 +310,7 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
   const getMarkerIcon = (type: string) => {
     switch (type) {
       case "shelter":
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke  width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 20H7a2 2 0 0 1-2-2v-7.08A2 2 0 0 1 7 9h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/><path d="M9 9V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/><path d="M13 20v-5a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v5"/></svg>`
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 20H7a2 2 0 0 1-2-2v-7.08A2 2 0 0 1 7 9h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/><path d="M9 9V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/><path d="M13 20v-5a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v5"/></svg>`
       case "danger":
         return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`
       case "evacuation":
@@ -335,49 +323,35 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
   }
 
   return (
-    <div className="relative w-full h-full bg-white">
-      <div className="absolute top-4 left-4 right-4 z-10 bg-white/90 rounded-lg p-3 shadow-md">
-        <div>
-          <h2 className="font-medium text-lg">Disaster Response Map</h2>
-          <p className="text-sm text-gray-600">
-            {currentDisaster ? `Current disaster: ${currentDisaster}` : "No active disaster"}
-          </p>
-        </div>
+    <div className="h-full w-full border rounded-lg overflow-hidden bg-gray-50 relative">
+      <div className="absolute top-4 left-4 right-4 z-10 bg-white/90 rounded-lg p-2 shadow-md">
+        <h3 className="font-medium">Interactive Map</h3>
+        <p className="text-sm text-gray-600">
+          {geometryCode
+            ? "Showing recommended route"
+            : markers.length > 0
+              ? `Showing ${markers.length} locations`
+              : "Ask about locations to see them on the map"}
+        </p>
       </div>
 
       <div ref={mapContainer} className="w-full h-full" />
 
-      <div className="absolute bottom-4 left-4 z-10">
-        <div className="bg-white/90 p-3 rounded-lg shadow-md">
-          <h3 className="font-medium mb-2">Map Legend</h3>
-          <div className="space-y-2">
-            <div className="flex items-center">
-              <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mr-2">
-                <div dangerouslySetInnerHTML={{ __html: getMarkerIcon("shelter") }} />
-              </div>
-              <span className="text-sm">Shelter</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center mr-2">
-                <div dangerouslySetInnerHTML={{ __html: getMarkerIcon("danger") }} />
-              </div>
-              <span className="text-sm">Danger Zone</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center mr-2">
-                <div dangerouslySetInnerHTML={{ __html: getMarkerIcon("evacuation") }} />
-              </div>
-              <span className="text-sm">Evacuation Point</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center mr-2">
-                <div dangerouslySetInnerHTML={{ __html: getMarkerIcon("resource") }} />
-              </div>
-              <span className="text-sm">Resource Center</span>
-            </div>
+      <div className="absolute bottom-4 right-4">
+        <Button size="sm" onClick={onOpenFullMap} className="bg-white text-gray-800 hover:bg-gray-100 shadow-md">
+          Open Full Map
+        </Button>
+      </div>
+
+      {/* Simple legend when a route is displayed */}
+      {geometryCode && (
+        <div className="absolute bottom-4 left-4 bg-white/90 p-2 rounded-lg shadow-md">
+          <div className="flex items-center">
+            <div className="w-4 h-1 bg-red-500 mr-2"></div>
+            <span className="text-xs text-gray-700">Route</span>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

@@ -64,8 +64,8 @@ export default function NotificationSystem({ notifications, removeNotification }
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([])
 
-  const addNotification = (notification: Omit<Notification, "id">) => {
-    const id = Math.random().toString(36).substring(2, 9)
+  const addNotification = (notification: Omit<Notification, "id"> & { id?: string }) => {
+    const id = notification.id || Math.random().toString(36).substring(2, 9)
     const newNotification = { ...notification, id }
     setNotifications((prev) => [...prev, newNotification])
 
