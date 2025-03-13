@@ -8,7 +8,7 @@ import { X } from "lucide-react"
 
 // Mapbox access token
 export const MAPBOX_ACCESS_TOKEN =
-  "pk.eyJ1IjoibW91YWRlbm5hIiwiYSI6ImNseDB1d2VuczA0Y3gyaXM0Y2E5Z3A2OWoifQ.nnDPc-c8ndn7lpfEqukeXA"
+  "MAPBOX_ACCESS_TOKEN"
 
 // Define the marker structure
 export interface MapMarker {

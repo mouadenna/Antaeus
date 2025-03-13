@@ -102,15 +102,15 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
     simulateProgress(0, 33, () => {
       // Simulate a transcription result
       const simulatedTranscription =
-        "I'm trapped in a building on Main Street near the Central Park. The flood water is rising quickly and has reached the second floor. I think the building structure might be compromised. There are 3 of us here including a child. We need immediate evacuation assistance."
+        "I'm trapped in a hotel in Al Haouz, a region near Marrakech, that has been heavily affected by the earthquake. The hotel structure is severely damaged, and aftershocks are making it worse. The roads are blocked by debris, and escape is impossible. There are three of us here, including a child, and we are running out of supplies. We urgently need rescue assistance!"
       setTranscription(simulatedTranscription)
 
       // Simulate information extraction
       setProcessingStage("extracting")
       simulateProgress(33, 66, () => {
         // Simulate extracted information
-        setExtractedLocation("Main Street near Central Park")
-        setExtractedEmergency("Flood")
+        setExtractedLocation("Al Haouz, near Marrakech, Morocco")
+        setExtractedEmergency("Earthquake")
         setExtractedSeverity("Critical")
 
         // Simulate verification

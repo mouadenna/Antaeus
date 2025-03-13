@@ -15,6 +15,7 @@ import AudioReport from "../components/audio-report"
 import UserDashboard from "../components/user-dashboard"
 import AdminDashboard from "../components/admin-dashboard"
 import NotificationSystem, { useNotifications } from "../components/notification-system"
+import type { DisasterFeature } from "../components/active-disasters"
 
 // Sample FAQ suggestions
 const FAQ_SUGGESTIONS = [
@@ -42,44 +43,64 @@ const NOTIFICATION_MESSAGES = {
     type: "info" as const,
     duration: 8000,
   },
+  locationFound: {
+    id: "location-found",
+    title: "Location Found",
+    message: "A location has been identified and marked on the map.",
+    type: "info" as const,
+    duration: 5000,
+  },
+  disasterAlert: (disasterType: string, isMultiple: boolean) => ({
+    id: "disaster-alert",
+    title: isMultiple
+      ? "Multiple Disasters Alert"
+      : `${disasterType.charAt(0).toUpperCase() + disasterType.slice(1)} Alert`,
+    message: isMultiple
+      ? "Multiple disaster areas have been identified. Affected areas are marked on the map."
+      : `A ${disasterType} disaster area has been identified. Affected areas are marked on the map.`,
+    type: "alert" as const,
+    duration: 10000,
+  }),
 }
 
 // Sample map markers
 const SAMPLE_MARKERS: MapMarker[] = [
-  {
-    id: 1,
-    title: "Main Evacuation Center",
-    coordinates: [-74.006, 40.7128], // NYC
-    type: "shelter",
-    details: "Capacity for 500 people",
-    capacity: 500,
-    status: "open",
-  },
-  {
-    id: 2,
-    title: "Flooded Area",
-    coordinates: [-73.95, 40.72],
-    type: "danger",
-    details: "Severe flooding reported",
-    severity: "high",
-  },
-  {
-    id: 3,
-    title: "Medical Supply Station",
-    coordinates: [-74.02, 40.73],
-    type: "resource",
-    details: "First aid, medications, and medical staff available",
-    status: "open",
-  },
-  {
-    id: 4,
-    title: "Evacuation Pickup Point",
-    coordinates: [-73.98, 40.75],
-    type: "evacuation",
-    details: "Buses arrive every 30 minutes",
-    status: "open",
-  },
-]
+  
+    {
+      "id": 1,
+      "title": "Main Evacuation Center",
+      "coordinates": [-8.0059, 31.6349], // Near Marrakesh, Al Haouz region
+      "type": "shelter",
+      "details": "Capacity for 500 people",
+      "capacity": 500,
+      "status": "open"
+    },
+    {
+      "id": 2,
+      "title": "Flooded Area",
+      "coordinates": [-7.9789, 31.6091], // Near Marrakesh, Al Haouz region
+      "type": "danger",
+      "details": "Severe flooding reported",
+      "severity": "high"
+    },
+    {
+      "id": 3,
+      "title": "Medical Supply Station",
+      "coordinates": [-7.9604, 31.6344], // Near Marrakesh, Al Haouz region
+      "type": "resource",
+      "details": "First aid, medications, and medical staff available",
+      "status": "open"
+    },
+    {
+      "id": 4,
+      "title": "Evacuation Pickup Point",
+      "coordinates": [-7.9453, 31.6192], // Near Marrakesh, Al Haouz region
+      "type": "evacuation",
+      "details": "Buses arrive every 30 minutes",
+      "status": "open"
+    }
+  ]
+  
 
 interface Message {
   id: string
@@ -88,6 +109,10 @@ interface Message {
   timestamp: string
   geometryCODE?: string
   imageURL?: string
+  locationCoordinates?: {
+    latitude: string | number
+    longitude: string | number
+  }
 }
 
 export default function Home() {
@@ -95,6 +120,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState("dashboard")
   const [emergencyMode, setEmergencyMode] = useState(false)
   const [mapMarkers, setMapMarkers] = useState<MapMarker[]>(SAMPLE_MARKERS)
+  const [disasterFeatures, setDisasterFeatures] = useState<DisasterFeature[]>([])
   const [currentDisaster, setCurrentDisaster] = useState<string | null>(null)
   const [agentExecutor, setAgentExecutor] = useState<((input: string) => Promise<string>) | null>(null)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
@@ -116,6 +142,95 @@ export default function Home() {
 
     initAgent()
   }, []) // Empty dependency array means this runs once on mount
+
+  // Load GeoJSON data
+  useEffect(() => {
+    const loadGeoJSONData = async () => {
+      try {
+        // In a real app, this would be fetched from an API
+        // For this example, we'll use the provided GeoJSON data
+        const geoJSONData = {
+          type: "FeatureCollection",
+          features: [
+            {
+              "type": "Feature",
+              "properties": {
+                "name": "Rabat Flood Zone",
+                "disasterType": "flood",
+                "severity": "high",
+                "description": "Severe flooding affecting residential and commercial areas"
+              },
+              "geometry": {
+                "type": "Polygon",
+                "coordinates": [
+                  [
+                    [-6.830116, 34.046417],
+                    [-6.819884, 34.043697],
+                    [-6.801479, 34.052744],
+                    [-6.787285, 34.055607],
+                    [-6.777244, 34.06906],
+                    [-6.789772, 34.083933],
+                    [-6.830116, 34.046417]
+                  ]
+                ]
+              }
+            }
+          ],
+        }
+
+        // Convert GeoJSON features to DisasterFeature format
+        const features: DisasterFeature[] = []
+        if (geoJSONData && Array.isArray(geoJSONData.features)) {
+          geoJSONData.features.forEach((feature: any, index) => {
+            if (feature && feature.properties && feature.geometry) {
+              features.push({
+                id: `disaster-${index}`,
+                properties: feature.properties,
+                geometry: feature.geometry,
+              })
+            }
+          })
+        }
+
+        console.log("Loaded disaster features:", features)
+        setDisasterFeatures(features)
+
+        // Update current disaster based on features
+        if (features.length > 0) {
+          // Get unique disaster types
+          const disasterTypes = [...new Set(features.map((f) => f.properties.disasterType))]
+
+          if (disasterTypes.length === 1) {
+            // If only one type, use it directly
+            setCurrentDisaster(disasterTypes[0].charAt(0).toUpperCase() + disasterTypes[0].slice(1))
+          } else if (disasterTypes.length > 1) {
+            // If multiple types, use "Multiple Disasters"
+            setCurrentDisaster("Multiple Disasters")
+          }
+
+          // Add notification about the disaster(s)
+          setTimeout(() => {
+            const isMultiple = disasterTypes.length > 1
+            const disasterType = isMultiple ? "" : features[0].properties.disasterType
+            addNotification(NOTIFICATION_MESSAGES.disasterAlert(disasterType, isMultiple))
+          }, 1000)
+        } else {
+          // If no features, set currentDisaster to null
+          setCurrentDisaster(null)
+
+          // Reset emergency mode if it was active
+          if (emergencyMode) {
+            setEmergencyMode(false)
+          }
+        }
+      } catch (error) {
+        console.error("Error loading GeoJSON data:", error)
+        setDisasterFeatures([])
+      }
+    }
+
+    loadGeoJSONData()
+  }, [])
 
   // Update the handleSendMessage function to ensure proper API communication
   const handleSendMessage = async (text: string) => {
@@ -154,10 +269,85 @@ export default function Home() {
         const parsedResponse = JSON.parse(response)
         console.log("Parsed response:", parsedResponse)
 
+        // Handle the case where the API returns "image" instead of "imageURL"
+        if (parsedResponse.image && !parsedResponse.imageURL) {
+          parsedResponse.imageURL = parsedResponse.image
+          console.log("Converted 'image' field to 'imageURL':", parsedResponse.imageURL)
+        }
+
         // Log when we receive a geometryCode
         if (parsedResponse.geometryCODE && parsedResponse.geometryCODE.trim() !== "") {
           console.log("Received geometryCode:", parsedResponse.geometryCODE.substring(0, 30) + "...")
           addNotification(NOTIFICATION_MESSAGES.routeGenerated)
+        }
+
+        // Enhanced handling of location coordinates
+        if (parsedResponse.locationCoordinates) {
+          console.log("Received location coordinates:", parsedResponse.locationCoordinates)
+
+          try {
+            // Validate coordinates before processing
+            const lat =
+              typeof parsedResponse.locationCoordinates.latitude === "string"
+                ? Number.parseFloat(parsedResponse.locationCoordinates.latitude.trim())
+                : parsedResponse.locationCoordinates.latitude
+
+            const lng =
+              typeof parsedResponse.locationCoordinates.longitude === "string"
+                ? Number.parseFloat(parsedResponse.locationCoordinates.longitude.trim())
+                : parsedResponse.locationCoordinates.longitude
+
+            console.log("Parsed coordinates:", { lat, lng })
+
+            // Check if coordinates are valid numbers
+            if (!isNaN(lat) && !isNaN(lng) && isFinite(lat) && isFinite(lng)) {
+              // Clamp to valid ranges
+              const validLat = Math.max(-90, Math.min(90, lat))
+              const validLng = Math.max(-180, Math.min(180, lng))
+
+              console.log("Valid coordinates:", { validLat, validLng })
+
+              // Show notification for valid coordinates
+              addNotification({
+                ...NOTIFICATION_MESSAGES.locationFound,
+                message: `Disaster location found at ${validLat.toFixed(6)}, ${validLng.toFixed(6)}. The map has been updated.`,
+              })
+
+              // Add a new marker for the location
+              const newMarker: MapMarker = {
+                id: Date.now(),
+                title: "Disaster Location",
+                coordinates: [validLng, validLat], // Mapbox uses [lng, lat] order
+                type: "danger", // Mark as danger type for better visibility
+                details: `Location identified from your query: ${text}`,
+                severity: "high",
+              }
+
+              // Add the new marker to the map
+              setMapMarkers((prev) => {
+                // Filter out any previous disaster location markers to avoid duplicates
+                const filteredMarkers = prev.filter((marker) => marker.title !== "Disaster Location")
+                return [...filteredMarkers, newMarker]
+              })
+
+              // If we're not already on the map tab, show a prompt to view the map
+              if (activeTab !== "map") {
+                setTimeout(() => {
+                  addNotification({
+                    id: "view-map-prompt",
+                    title: "Disaster Location Detected",
+                    message: "Click to see the location on the full map",
+                    type: "alert",
+                    duration: 10000,
+                  })
+                }, 2000)
+              }
+            } else {
+              console.warn("Invalid coordinates received:", parsedResponse.locationCoordinates)
+            }
+          } catch (error) {
+            console.error("Error processing location coordinates:", error)
+          }
         }
 
         // Create a bot message with the parsed response
@@ -172,6 +362,7 @@ export default function Home() {
               : undefined,
           imageURL:
             parsedResponse.imageURL && parsedResponse.imageURL.trim() !== "" ? parsedResponse.imageURL : undefined,
+          locationCoordinates: parsedResponse.locationCoordinates || undefined,
         }
 
         setMessages((prev) => [...prev, botMessage])
@@ -209,24 +400,35 @@ export default function Home() {
   }
 
   const activateEmergencyMode = () => {
-    setEmergencyMode(true)
-    handleSendMessage("Activate emergency mode")
-    addNotification(NOTIFICATION_MESSAGES.emergencyMode)
+    // Only activate emergency mode if there are active disasters
+    if (disasterFeatures.length > 0) {
+      setEmergencyMode(true)
+      handleSendMessage("Activate emergency mode")
+      addNotification(NOTIFICATION_MESSAGES.emergencyMode)
 
-    // Add system message about emergency mode
-    const systemMessage: Message = {
-      id: uuidv4(),
-      text: "⚠️ Emergency Mode Activated. Your messages will be prioritized. Please describe your situation.",
-      sender: "bot",
-      timestamp: new Date().toISOString(),
+      // Add system message about emergency mode
+      const systemMessage: Message = {
+        id: uuidv4(),
+        text: "⚠️ Emergency Mode Activated. Your messages will be prioritized. Please describe your situation.",
+        sender: "bot",
+        timestamp: new Date().toISOString(),
+      }
+
+      setMessages((prev) => [...prev, systemMessage])
+    } else {
+      // If no active disasters, show a notification that emergency mode can't be activated
+      addNotification({
+        id: "no-emergency-available",
+        title: "No Active Disasters",
+        message: "Emergency mode can only be activated during an active disaster event.",
+        type: "info",
+        duration: 5000,
+      })
     }
-
-    setMessages((prev) => [...prev, systemMessage])
   }
 
   const handleNewChat = () => {
     setEmergencyMode(false)
-    setCurrentDisaster(null)
     setMessages([])
     if (activeTab !== "chat") {
       setActiveTab("chat")
@@ -279,8 +481,41 @@ export default function Home() {
 
     setMapMarkers((prev) => [...prev, newMarker])
 
-    if (!currentDisaster) {
-      setCurrentDisaster(reportData.emergencyType)
+    // Add a new disaster feature if it's a disaster type
+    if (["flood", "fire", "earthquake", "hurricane"].includes(reportData.emergencyType.toLowerCase())) {
+      // Create a simple polygon around the reported location
+      const lng = reportData.coordinates[0]
+      const lat = reportData.coordinates[1]
+      const offset = 0.01 // Roughly 1km
+
+      const newDisaster: DisasterFeature = {
+        id: `disaster-report-${Date.now()}`,
+        properties: {
+          name: `${reportData.emergencyType} at ${reportData.location}`,
+          disasterType: reportData.emergencyType.toLowerCase(),
+          severity: reportData.severity.toLowerCase(),
+          description: reportData.transcription,
+        },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [lng - offset, lat - offset],
+              [lng + offset, lat - offset],
+              [lng + offset, lat + offset],
+              [lng - offset, lat + offset],
+              [lng - offset, lat - offset],
+            ],
+          ],
+        },
+      }
+
+      setDisasterFeatures((prev) => [...prev, newDisaster])
+
+      // Update current disaster if needed
+      if (!currentDisaster) {
+        setCurrentDisaster(reportData.emergencyType)
+      }
     }
 
     handleSendMessage(
@@ -324,6 +559,17 @@ export default function Home() {
     return undefined
   }
 
+  // Extract the latest location coordinates from messages
+  const getLatestLocationCoordinates = () => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].locationCoordinates) {
+        console.log("Found location coordinates in message:", messages[i].locationCoordinates)
+        return messages[i].locationCoordinates
+      }
+    }
+    return undefined
+  }
+
   return (
     <>
       <div className="flex flex-col justify-between items-center min-h-screen mx-auto">
@@ -345,7 +591,11 @@ export default function Home() {
           <div className="flex-1 p-4">
             <TabsContent value="dashboard" className="m-0">
               {userRole === "user" ? (
-                <UserDashboard currentDisaster={currentDisaster} onNavigate={handleNavigate} />
+                <UserDashboard
+                  currentDisaster={currentDisaster}
+                  onNavigate={handleNavigate}
+                  disasterFeatures={disasterFeatures}
+                />
               ) : (
                 <AdminDashboard currentDisaster={currentDisaster} onNavigate={handleNavigate} />
               )}
@@ -367,17 +617,20 @@ export default function Home() {
                 onOpenFullMap={() => handleNavigate("map")}
                 userRole={userRole}
                 isLoading={isLoading}
+                disasterFeatures={disasterFeatures}
               />
             </TabsContent>
 
-            <TabsContent value="map" className="m-0">
-              <div className="w-full h-[calc(100vh-160px)] rounded-lg border overflow-hidden">
+            <TabsContent value="map" className="m-0 h-[calc(100vh-160px)]">
+              <div className="w-full h-full rounded-lg border overflow-hidden">
                 <MapComponent
                   markers={mapMarkers}
                   currentDisaster={currentDisaster}
                   onMarkerClick={handleMarkerClick}
-                  onClose={() => {}}
+                  onClose={() => setActiveTab("dashboard")}
                   geometryCode={getLatestGeometryCode()}
+                  locationCoordinates={getLatestLocationCoordinates()}
+                  disasterFeatures={disasterFeatures}
                 />
               </div>
             </TabsContent>

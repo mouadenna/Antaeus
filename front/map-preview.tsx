@@ -9,7 +9,7 @@ import "mapbox-gl/dist/mapbox-gl.css"
 
 // Use the same Mapbox access token as in map-component.tsx
 const MAPBOX_ACCESS_TOKEN =
-  "pk.eyJ1IjoibW91YWRlbm5hIiwiYSI6ImNseDB1d2VuczA0Y3gyaXM0Y2E5Z3A2OWoifQ.nnDPc-c8ndn7lpfEqukeXA"
+  "MAPBOX_ACCESS_TOKEN"
 
 interface MapPreviewProps {
   markers: MapMarker[]

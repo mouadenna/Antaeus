@@ -10,20 +10,20 @@
           "country": "Morocco"
         },
         "image_url": "https://memorai-media.s3.us-east-1.amazonaws.com/WhatsApp+Image+2025-03-13+at+10.36.30_90b0058a.jpg",
-        "timestamp": "2024-10-15T22:45:00Z",
+        "timestamp": "",
         "damage_types": ["earthquake"],
         "damage_level": "major damage"
       },
       {
         "type": "flood",
         "location": {
-          "latitude": 33.5731,
-          "longitude": -7.5898,
-          "city": "Casablanca",
-          "region": "Casablanca-Settat",
+          "latitude": 34.055607,
+          "longitude": -6.787285,
+          "city": "Sale",
+          "region": "Rabat-Salé-Kénitra",
           "country": "Morocco"
         },
-        "image_url": "https://memorai-media.s3.us-east-1.amazonaws.com/WhatsApp+Image+2025-03-13+at+10.36.24_ed0a5866.jpg",
+        "image_url": "",
         "timestamp": "2024-09-20T10:30:00Z",
         "damage_types": ["flooding"],
         "damage_level": "minor damage"
@@ -51,7 +51,7 @@
           "region": "Rabat-Salé-Kénitra",
           "country": "Morocco"
         },
-        "image_url": "https://example.com/storm_rabat.jpg",
+        "image_url": "https://memorai-media.s3.us-east-1.amazonaws.com/WhatsApp+Image+2025-03-13+at+10.36.24_ed0a5866.jpg",
         "timestamp": "2024-07-12T03:00:00Z",
         "damage_types": ["wind", "flooding"],
         "damage_level": "major damage"

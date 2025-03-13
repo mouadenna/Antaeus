@@ -3,10 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 import mapboxgl from "mapbox-gl"
 import "mapbox-gl/dist/mapbox-gl.css"
+import { Button } from "@/components/ui/button"
+import { X, Users, Home, AlertTriangle, ArrowUp, Package } from "lucide-react"
+import type { DisasterFeature } from "./active-disasters"
 
 // Mapbox access token
 export const MAPBOX_ACCESS_TOKEN =
-  "pk.eyJ1IjoibW91YWRlbm5hIiwiYSI6ImNseDB1d2VuczA0Y3gyaXM0Y2E5Z3A2OWoifQ.nnDPc-c8ndn7lpfEqukeXA"
+  "MAPBOX_ACCESS_TOKEN"
 
 // Define the marker structure
 export interface MapMarker {
@@ -24,16 +27,92 @@ interface MapComponentProps {
   markers: MapMarker[]
   currentDisaster: string | null
   onMarkerClick: (marker: MapMarker) => void
-  onClose?: () => void
+  onClose: () => void
   geometryCode?: string
+  locationCoordinates?: {
+    latitude: string | number
+    longitude: string | number
+  }
+  disasterFeatures: DisasterFeature[]
 }
 
-export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose, geometryCode }: MapComponentProps) {
+export function MapComponent({
+  markers,
+  currentDisaster,
+  onMarkerClick,
+  onClose,
+  geometryCode,
+  locationCoordinates,
+  disasterFeatures,
+}: MapComponentProps) {
   const mapContainer = useRef<HTMLDivElement>(null)
   const map = useRef<mapboxgl.Map | null>(null)
   const [mapLoaded, setMapLoaded] = useState(false)
   const markersRef = useRef<{ [key: number]: mapboxgl.Marker }>({})
   const routeLayerRef = useRef<boolean>(false)
+  const locationMarkerRef = useRef<mapboxgl.Marker | null>(null)
+  const disasterLayersRef = useRef<string[]>([])
+  const safeDisasterFeatures = disasterFeatures || []
+
+  // Calculate statistics based on markers and disaster features
+  const [statistics, setStatistics] = useState({
+    estimatedAffected: 0,
+    shelterCapacity: 0,
+    shelterCount: 0,
+    dangerZones: 0,
+    evacuationPoints: 0,
+    resourceCenters: 0,
+  })
+
+  // Calculate statistics when markers or disaster features change
+  useEffect(() => {
+    // Count markers by type
+    const shelterMarkers = markers.filter((m) => m.type === "shelter")
+    const dangerMarkers = markers.filter((m) => m.type === "danger")
+    const evacuationMarkers = markers.filter((m) => m.type === "evacuation")
+    const resourceMarkers = markers.filter((m) => m.type === "resource")
+
+    // Calculate total shelter capacity
+    const totalCapacity = shelterMarkers.reduce((sum, marker) => sum + (marker.capacity || 0), 0)
+
+    // Estimate affected people based on disaster features and danger zones
+    // This is a simplified estimation for demonstration purposes
+    let estimatedAffected = 0
+
+    if (safeDisasterFeatures.length > 0) {
+      // Base estimate on disaster type and severity
+      safeDisasterFeatures.forEach((feature) => {
+        const basePopulation = Math.floor(Math.random() * 50000) + 10000 // Random base between 10,000-60,000
+        const severityMultiplier =
+          feature.properties?.severity === "high" ? 0.8 : feature.properties?.severity === "medium" ? 0.5 : 0.2
+
+        const disasterTypeMultiplier =
+          feature.properties?.disasterType === "flood"
+            ? 0.7
+            : feature.properties?.disasterType === "fire"
+              ? 0.5
+              : feature.properties?.disasterType === "earthquake"
+                ? 0.9
+                : feature.properties?.disasterType === "hurricane"
+                  ? 0.8
+                  : 0.6
+
+        estimatedAffected += Math.floor(basePopulation * severityMultiplier * disasterTypeMultiplier)
+      })
+    } else if (dangerMarkers.length > 0) {
+      // If no disaster features but danger markers exist, estimate based on those
+      estimatedAffected = dangerMarkers.length * 5000
+    }
+
+    setStatistics({
+      estimatedAffected,
+      shelterCapacity: totalCapacity,
+      shelterCount: shelterMarkers.length,
+      dangerZones: dangerMarkers.length,
+      evacuationPoints: evacuationMarkers.length,
+      resourceCenters: resourceMarkers.length,
+    })
+  }, [markers, safeDisasterFeatures])
 
   // Initialize the map
   useEffect(() => {
@@ -44,9 +123,8 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
     const newMap = new mapboxgl.Map({
       container: mapContainer.current,
       style: "mapbox://styles/mapbox/streets-v11",
-      center: [-74.5, 40], // Default center (New York area)
-      zoom: 9,
-      // Add animation options
+      center: [-6.8, 34.05], // Default center (Rabat, Morocco)
+      zoom: 12,
       animate: true,
       fadeDuration: 1000,
     })
@@ -64,11 +142,223 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
     // Cleanup on unmount
     return () => {
       if (map.current) {
+        // Remove all disaster layers
+        disasterLayersRef.current.forEach((layerId) => {
+          if (map.current?.getLayer(layerId)) {
+            map.current.removeLayer(layerId)
+          }
+        })
+
+        // Remove all disaster sources
+        disasterLayersRef.current.forEach((layerId) => {
+          const sourceId = `source-${layerId}`
+          if (map.current?.getSource(sourceId)) {
+            map.current.removeSource(sourceId)
+          }
+        })
+
         map.current.remove()
         map.current = null
       }
     }
   }, [])
+
+  // Load disaster areas from GeoJSON features
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    // Check if disasterFeatures exists and has data
+    const hasDisasterData = safeDisasterFeatures.length > 0
+
+    try {
+      // Remove existing disaster layers
+      disasterLayersRef.current.forEach((layerId) => {
+        if (map.current?.getLayer(layerId)) {
+          map.current.removeLayer(layerId)
+        }
+      })
+
+      // Remove existing disaster sources
+      disasterLayersRef.current.forEach((layerId) => {
+        const sourceId = `source-${layerId}`
+        if (map.current?.getSource(sourceId)) {
+          map.current.removeSource(sourceId)
+        }
+      })
+
+      // Reset the layers reference
+      disasterLayersRef.current = []
+
+      // If no disaster data, return early
+      if (!hasDisasterData) {
+        console.log("No disaster features to display")
+        return
+      }
+
+      console.log(`Adding ${safeDisasterFeatures.length} disaster features to map`)
+
+      // Add each disaster feature to the map
+      safeDisasterFeatures.forEach((feature, index) => {
+        const disasterType = feature.properties?.disasterType?.toLowerCase() || "unknown"
+        const fillLayerId = `disaster-${disasterType}-fill-${index}`
+        const outlineLayerId = `disaster-${disasterType}-outline-${index}`
+        const sourceId = `source-${fillLayerId}`
+
+        // Add source for the disaster area
+        map.current?.addSource(sourceId, {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: feature.properties,
+            geometry: feature.geometry,
+          },
+        })
+
+        // Add fill layer
+        map.current?.addLayer({
+          id: fillLayerId,
+          type: "fill",
+          source: sourceId,
+          paint: getDisasterFillPaint(disasterType),
+        })
+
+        // Add outline layer
+        map.current?.addLayer({
+          id: outlineLayerId,
+          type: "line",
+          source: sourceId,
+          paint: getDisasterOutlinePaint(disasterType),
+        })
+
+        // Add popup on hover
+        map.current?.on("mouseenter", fillLayerId, () => {
+          map.current!.getCanvas().style.cursor = "pointer"
+        })
+
+        map.current?.on("mouseleave", fillLayerId, () => {
+          map.current!.getCanvas().style.cursor = ""
+        })
+
+        // Add click event to show popup
+        map.current?.on("click", fillLayerId, (e) => {
+          if (!e.features || e.features.length === 0) return
+
+          const properties = e.features[0].properties
+          if (!properties) return
+
+          new mapboxgl.Popup()
+            .setLngLat(e.lngLat)
+            .setHTML(`
+              <div style="padding: 10px;">
+                <h3 style="font-weight: 600; margin-bottom: 5px;">${properties.name}</h3>
+                <p style="margin-bottom: 5px;"><strong>Type:</strong> ${properties.disasterType}</p>
+                <p style="margin-bottom: 5px;"><strong>Severity:</strong> ${properties.severity}</p>
+                <p style="margin-bottom: 0;">${properties.description}</p>
+              </div>
+            `)
+            .addTo(map.current!)
+        })
+
+        // Track the layers we've added
+        disasterLayersRef.current.push(fillLayerId, outlineLayerId)
+      })
+
+      // If we have disaster areas, fit the map to them
+      if (safeDisasterFeatures.length > 0) {
+        // Create a bounds object
+        const bounds = new mapboxgl.LngLatBounds()
+
+        // Extend the bounds to include all disaster areas
+        safeDisasterFeatures.forEach((feature) => {
+          if (feature.geometry.type === "Polygon" && feature.geometry.coordinates.length > 0) {
+            feature.geometry.coordinates[0].forEach((coord) => {
+              bounds.extend(coord as [number, number])
+            })
+          }
+        })
+
+        // Only fit bounds if we have valid bounds
+        if (!bounds.isEmpty()) {
+          map.current?.fitBounds(bounds, {
+            padding: 50,
+            maxZoom: 15,
+            duration: 1500,
+          })
+        }
+      }
+
+      console.log("Successfully added disaster areas to map")
+    } catch (error) {
+      console.error("Error handling disaster areas:", error)
+    }
+  }, [safeDisasterFeatures, mapLoaded])
+
+  // Helper function to get fill paint properties based on disaster type
+  const getDisasterFillPaint = (disasterType: string) => {
+    switch (disasterType) {
+      case "flood":
+        return {
+          "fill-color": "rgba(0, 102, 255, 0.5)",
+          "fill-opacity": 0.7,
+        }
+      case "fire":
+        return {
+          "fill-color": "rgba(255, 59, 48, 0.5)",
+          "fill-opacity": 0.7,
+        }
+      case "earthquake":
+        return {
+          "fill-color": "rgba(255, 149, 0, 0.5)",
+          "fill-opacity": 0.7,
+        }
+      case "hurricane":
+        return {
+          "fill-color": "rgba(142, 68, 173, 0.5)",
+          "fill-opacity": 0.7,
+        }
+      default:
+        return {
+          "fill-color": "rgba(128, 128, 128, 0.5)",
+          "fill-opacity": 0.7,
+        }
+    }
+  }
+
+  // Helper function to get outline paint properties based on disaster type
+  const getDisasterOutlinePaint = (disasterType: string) => {
+    switch (disasterType) {
+      case "flood":
+        return {
+          "line-color": "rgba(0, 102, 255, 1.0)",
+          "line-width": 3,
+          "line-dasharray": [3, 2],
+        }
+      case "fire":
+        return {
+          "line-color": "rgba(255, 59, 48, 1.0)",
+          "line-width": 3,
+          "line-dasharray": [3, 2],
+        }
+      case "earthquake":
+        return {
+          "line-color": "rgba(255, 149, 0, 1.0)",
+          "line-width": 3,
+          "line-dasharray": [3, 2],
+        }
+      case "hurricane":
+        return {
+          "line-color": "rgba(142, 68, 173, 1.0)",
+          "line-width": 3,
+          "line-dasharray": [3, 2],
+        }
+      default:
+        return {
+          "line-color": "rgba(128, 128, 128, 1.0)",
+          "line-width": 3,
+          "line-dasharray": [3, 2],
+        }
+    }
+  }
 
   // Add markers to the map
   useEffect(() => {
@@ -134,8 +424,8 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
       markersRef.current[marker.id] = mapboxMarker
     })
 
-    // If we have markers but no polyline, fit bounds to markers
-    if (markers.length > 0 && !geometryCode) {
+    // If we have markers but no polyline or location, fit bounds to markers
+    if (markers.length > 0 && !geometryCode && !locationCoordinates && safeDisasterFeatures.length === 0) {
       const bounds = new mapboxgl.LngLatBounds()
       markers.forEach((marker) => {
         bounds.extend(marker.coordinates)
@@ -148,6 +438,210 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
       })
     }
   }, [markers, mapLoaded, onMarkerClick])
+
+  // Add location marker when locationCoordinates changes
+  useEffect(() => {
+    if (!map.current || !mapLoaded) return
+
+    // Enhanced debugging for locationCoordinates
+    console.log("Processing locationCoordinates in MapComponent:", locationCoordinates)
+
+    // Remove existing location marker if it exists
+    if (locationMarkerRef.current) {
+      locationMarkerRef.current.remove()
+      locationMarkerRef.current = null
+    }
+
+    // If no location coordinates, return early
+    if (!locationCoordinates) {
+      console.log("No location coordinates provided to map component")
+      return
+    }
+
+    try {
+      // Convert string values to numbers if needed and handle various coordinate formats
+      const lat =
+        typeof locationCoordinates.latitude === "string"
+          ? Number.parseFloat(locationCoordinates.latitude.trim())
+          : locationCoordinates.latitude
+
+      const lng =
+        typeof locationCoordinates.longitude === "string"
+          ? Number.parseFloat(locationCoordinates.longitude.trim())
+          : locationCoordinates.longitude
+
+      console.log("Parsed location coordinates:", { lat, lng })
+
+      // Validate coordinates with less strict validation to handle edge cases
+      if (isNaN(lat) || isNaN(lng) || !isFinite(lat) || !isFinite(lng)) {
+        console.warn("Invalid location coordinates:", locationCoordinates)
+        return
+      }
+
+      // Ensure coordinates are within valid ranges with clamping instead of rejection
+      const validLat = Math.max(-90, Math.min(90, lat))
+      const validLng = Math.max(-180, Math.min(180, lng))
+
+      if (validLat !== lat || validLng !== lng) {
+        console.warn("Coordinates were out of bounds and have been clamped:", {
+          original: { lat, lng },
+          clamped: { validLat, validLng },
+        })
+      }
+
+      console.log("Creating disaster marker at:", validLng, validLat)
+
+      // Create a more visually distinct marker element for disaster locations
+      const el = document.createElement("div")
+      el.className = "disaster-location-marker"
+      el.style.width = "60px" // Larger size for better visibility
+      el.style.height = "60px"
+      el.style.borderRadius = "50%"
+      el.style.backgroundColor = "rgba(239, 68, 68, 0.5)" // Semitransparent red
+      el.style.border = "5px solid #ef4444" // Solid red border
+      el.style.boxShadow = "0 0 0 3px rgba(255, 255, 255, 0.8), 0 0 15px rgba(0, 0, 0, 0.5)"
+      el.style.display = "flex"
+      el.style.alignItems = "center"
+      el.style.justifyContent = "center"
+      el.style.zIndex = "1000" // Ensure it's on top
+      el.style.cursor = "pointer"
+      el.style.transform = "translate(-50%, -50%)" // Center the marker on the coordinates
+
+      // Add a more prominent warning icon
+      const iconElement = document.createElement("div")
+      iconElement.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="#ef4444" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`
+      el.appendChild(iconElement)
+
+      // Create popup with more detailed information
+      const popup = new mapboxgl.Popup({
+        offset: 30,
+        closeButton: true,
+        closeOnClick: false,
+        maxWidth: "350px",
+        className: "disaster-location-popup",
+      }).setHTML(`
+      <div style="padding: 15px;">
+        <h3 style="font-weight: 700; margin-bottom: 10px; color: #ef4444; font-size: 16px;">⚠️ Disaster Location</h3>
+        <p style="margin-bottom: 8px; font-size: 14px;"><strong>Coordinates:</strong> ${validLat.toFixed(6)}, ${validLng.toFixed(6)}</p>
+        <p style="margin-bottom: 8px; font-size: 14px;"><strong>Status:</strong> High Risk Area</p>
+        <p style="margin-bottom: 0; font-size: 14px;"><strong>Recommendation:</strong> Avoid this area and follow evacuation routes if provided.</p>
+      </div>
+    `)
+
+      // Create and add the marker with guaranteed valid coordinates
+      const coordinates: [number, number] = [validLng, validLat]
+      const marker = new mapboxgl.Marker({
+        element: el,
+      })
+        .setLngLat(coordinates)
+        .setPopup(popup)
+        .addTo(map.current)
+
+      // Open popup by default to draw attention
+      marker.togglePopup()
+
+      // Store reference to the marker
+      locationMarkerRef.current = marker
+
+      // Add secondary visual elements to draw attention to the location
+      addRippleEffect(coordinates)
+      addPulsingEffect(el)
+
+      // Fly to the location with animation
+      map.current.flyTo({
+        center: coordinates,
+        zoom: 15, // Closer zoom for better visibility
+        essential: true,
+        duration: 2000,
+        pitch: 60,
+        bearing: Math.random() * 60 - 30, // Random bearing for dynamic view
+      })
+
+      console.log("Successfully added disaster marker to map")
+    } catch (error) {
+      console.error("Error adding location marker:", error)
+    }
+  }, [locationCoordinates, mapLoaded])
+
+  // Add these new helper functions within the MapComponent function for cleaner effects
+  const addPulsingEffect = (element: HTMLElement) => {
+    if (!element) return
+
+    let opacity = 1
+    let growing = false
+    let scale = 1
+
+    const pulse = () => {
+      if (!element) return
+
+      if (growing) {
+        opacity += 0.02
+        scale += 0.01
+        if (opacity >= 1 || scale >= 1.2) {
+          growing = false
+        }
+      } else {
+        opacity -= 0.02
+        scale -= 0.01
+        if (opacity <= 0.7 || scale <= 1) {
+          growing = true
+        }
+      }
+
+      element.style.opacity = opacity.toString()
+      element.style.transform = `translate(-50%, -50%) scale(${scale})`
+      requestAnimationFrame(pulse)
+    }
+
+    requestAnimationFrame(pulse)
+  }
+
+  const addRippleEffect = (coordinates: [number, number]) => {
+    if (!map.current) return
+
+    const createRipple = () => {
+      // Create a ripple element
+      const ripple = document.createElement("div")
+      ripple.className = "disaster-ripple"
+      ripple.style.position = "absolute"
+      ripple.style.width = "60px"
+      ripple.style.height = "60px"
+      ripple.style.borderRadius = "50%"
+      ripple.style.backgroundColor = "rgba(239, 68, 68, 0.2)"
+      ripple.style.border = "2px solid rgba(239, 68, 68, 0.5)"
+      ripple.style.transform = "translate(-50%, -50%)"
+      ripple.style.zIndex = "999"
+
+      // Add to map container at the marker position
+      const { x, y } = map.current.project(coordinates)
+      ripple.style.left = `${x}px`
+      ripple.style.top = `${y}px`
+      map.current.getContainer().appendChild(ripple)
+
+      // Animate the ripple
+      let size = 1
+      const animateRipple = () => {
+        size += 0.05
+        ripple.style.transform = `translate(-50%, -50%) scale(${size})`
+        ripple.style.opacity = (1.5 - size).toString()
+
+        if (size < 3) {
+          requestAnimationFrame(animateRipple)
+        } else {
+          ripple.remove()
+        }
+      }
+
+      requestAnimationFrame(animateRipple)
+    }
+
+    // Start ripple effect and repeat every 3 seconds
+    createRipple()
+    const rippleInterval = setInterval(createRipple, 3000)
+
+    // Store the interval ID for cleanup
+    return rippleInterval
+  }
 
   // Add polyline to the map when geometryCode changes
   useEffect(() => {
@@ -322,7 +816,7 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
   const getMarkerIcon = (type: string) => {
     switch (type) {
       case "shelter":
-        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke  width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 20H7a2 2 0 0 1-2-2v-7.08A2 2 0 0 1 7 9h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/><path d="M9 9V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/><path d="M13 20v-5a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v5"/></svg>`
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 20H7a2 2 0 0 1-2-2v-7.08A2 2 0 0 1 7 9h10a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2"/><path d="M9 9V7a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/><path d="M3 13h18"/><path d="M13 20v-5a1 1 0 0 0-1-1h-1a1 1 0 0 0-1 1v5"/></svg>`
       case "danger":
         return `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`
       case "evacuation":
@@ -334,18 +828,80 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
     }
   }
 
+  // Format number with commas for thousands
+  const formatNumber = (num: number) => {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+  }
+
   return (
     <div className="relative w-full h-full bg-white">
-      <div className="absolute top-4 left-4 right-4 z-10 bg-white/90 rounded-lg p-3 shadow-md">
+      <div className="absolute top-4 left-4 right-4 z-10 bg-white/90 rounded-lg p-3 shadow-md flex justify-between items-center">
         <div>
           <h2 className="font-medium text-lg">Disaster Response Map</h2>
           <p className="text-sm text-gray-600">
-            {currentDisaster ? `Current disaster: ${currentDisaster}` : "No active disaster"}
+            {safeDisasterFeatures.length > 0
+              ? `${safeDisasterFeatures.length} active disaster ${safeDisasterFeatures.length > 1 ? "areas" : "area"}`
+              : "No active disasters"}
           </p>
         </div>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="h-5 w-5" />
+        </Button>
       </div>
 
       <div ref={mapContainer} className="w-full h-full" />
+
+      {/* Statistics Panel */}
+      <div className="absolute top-20 right-4 z-10 bg-white/90 p-4 rounded-lg shadow-md w-64">
+        <h3 className="font-medium text-lg mb-3 border-b pb-2">Disaster Statistics</h3>
+
+        <div className="space-y-3">
+          <div className="flex items-center">
+            <Users className="h-5 w-5 text-red-500 mr-3" />
+            <div>
+              <p className="text-sm font-medium">Estimated Affected</p>
+              <p className="text-lg font-bold">{formatNumber(statistics.estimatedAffected)}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            <Home className="h-5 w-5 text-blue-500 mr-3" />
+            <div>
+              <p className="text-sm font-medium">Shelters</p>
+              <p className="text-lg font-bold">
+                {statistics.shelterCount}{" "}
+                <span className="text-sm font-normal text-gray-500">
+                  ({formatNumber(statistics.shelterCapacity)} capacity)
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            <AlertTriangle className="h-5 w-5 text-red-500 mr-3" />
+            <div>
+              <p className="text-sm font-medium">Danger Zones</p>
+              <p className="text-lg font-bold">{statistics.dangerZones}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            <ArrowUp className="h-5 w-5 text-sky-500 mr-3" />
+            <div>
+              <p className="text-sm font-medium">Evacuation Points</p>
+              <p className="text-lg font-bold">{statistics.evacuationPoints}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center">
+            <Package className="h-5 w-5 text-purple-500 mr-3" />
+            <div>
+              <p className="text-sm font-medium">Resource Centers</p>
+              <p className="text-lg font-bold">{statistics.resourceCenters}</p>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div className="absolute bottom-4 left-4 z-10">
         <div className="bg-white/90 p-3 rounded-lg shadow-md">
@@ -375,6 +931,55 @@ export function MapComponent({ markers, currentDisaster, onMarkerClick, onClose,
               </div>
               <span className="text-sm">Resource Center</span>
             </div>
+            {locationCoordinates && (
+              <div className="flex items-center">
+                <div className="w-6 h-6 rounded-full bg-red-500 flex items-center justify-center mr-2">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="white"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+                    <circle cx="12" cy="10" r="3" />
+                  </svg>
+                </div>
+                <span className="text-sm">Reported Location</span>
+              </div>
+            )}
+            {safeDisasterFeatures.length > 0 && (
+              <>
+                {safeDisasterFeatures.some((f) => f?.properties?.disasterType?.toLowerCase() === "flood") && (
+                  <div className="flex items-center">
+                    <div className="w-6 h-6 rounded-md bg-blue-400/60 border border-blue-600 mr-2"></div>
+                    <span className="text-sm">Flood Zone</span>
+                  </div>
+                )}
+                {safeDisasterFeatures.some((f) => f?.properties?.disasterType?.toLowerCase() === "fire") && (
+                  <div className="flex items-center">
+                    <div className="w-6 h-6 rounded-md bg-red-400/60 border border-red-600 mr-2"></div>
+                    <span className="text-sm">Fire Zone</span>
+                  </div>
+                )}
+                {safeDisasterFeatures.some((f) => f?.properties?.disasterType?.toLowerCase() === "earthquake") && (
+                  <div className="flex items-center">
+                    <div className="w-6 h-6 rounded-md bg-amber-400/60 border border-amber-600 mr-2"></div>
+                    <span className="text-sm">Earthquake Zone</span>
+                  </div>
+                )}
+                {safeDisasterFeatures.some((f) => f?.properties?.disasterType?.toLowerCase() === "hurricane") && (
+                  <div className="flex items-center">
+                    <div className="w-6 h-6 rounded-md bg-purple-400/60 border border-purple-600 mr-2"></div>
+                    <span className="text-sm">Hurricane Zone</span>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

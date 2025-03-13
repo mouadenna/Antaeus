@@ -1,0 +1,29 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Rabat Flood Zone",
+        "disasterType": "flood",
+        "severity": "high",
+        "description": "Severe flooding affecting residential and commercial areas"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [-6.830116, 34.046417],
+            [-6.819884, 34.043697],
+            [-6.801479, 34.052744],
+            [-6.787285, 34.055607],
+            [-6.777244, 34.06906],
+            [-6.789772, 34.083933],
+            [-6.830116, 34.046417]
+          ]
+        ]
+      }
+    }
+  ]
+}
+

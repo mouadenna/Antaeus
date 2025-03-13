@@ -16,8 +16,17 @@ interface Message {
   timestamp: string
   geometryCODE?: string
   imageURL?: string
+  locationCoordinates?: { latitude: number; longitude: number }
 }
 
+// Define the DisasterArea type
+interface DisasterArea {
+  id: string
+  name: string
+  geometry: any 
+}
+
+// Update the ChatContainerProps interface to include disasterAreas
 interface ChatContainerProps {
   messages: Message[]
   emergencyMode: boolean
@@ -33,8 +42,10 @@ interface ChatContainerProps {
   onMarkerClick: (marker: MapMarker) => void
   onOpenFullMap: () => void
   isLoading?: boolean
+  disasterAreas?: DisasterArea[]
 }
 
+// Update the destructuring in the function parameters to include disasterAreas
 export function ChatContainer({
   messages,
   emergencyMode,
@@ -50,32 +61,65 @@ export function ChatContainer({
   onMarkerClick,
   onOpenFullMap,
   isLoading = false,
+  disasterAreas,
 }: ChatContainerProps) {
   const [message, setMessage] = useState("")
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [currentGeometryCode, setCurrentGeometryCode] = useState<string | undefined>(undefined)
+  const [currentLocationCoordinates, setCurrentLocationCoordinates] = useState<
+    { latitude: number; longitude: number } | undefined
+  >(undefined)
 
-  // Process messages to find the latest geometryCODE
-  const extractGeometryCode = useCallback(() => {
+  // Process messages to find the latest geometryCODE and locationCoordinates
+  const extractDataFromMessages = useCallback(() => {
     if (messages.length === 0) return
 
-    // Find the latest bot message with a geometryCODE
+    let foundGeometryCode = false
+    let foundLocationCoordinates = false
+
+    // Find the latest bot message with geometryCODE or locationCoordinates
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].sender === "bot" && messages[i].geometryCODE) {
-        const code = messages[i].geometryCODE
-        console.log("Found geometryCODE in message:", code?.substring(0, 20) + "...")
-        setCurrentGeometryCode(code)
-        return
+      const message = messages[i]
+
+      // Check for geometryCODE if not found yet
+      if (
+        !foundGeometryCode &&
+        message.sender === "bot" &&
+        message.geometryCODE &&
+        message.geometryCODE.trim() !== ""
+      ) {
+        console.log("Found geometryCODE in message:", message.geometryCODE.substring(0, 20) + "...")
+        setCurrentGeometryCode(message.geometryCODE)
+        foundGeometryCode = true
+      }
+
+      // Check for locationCoordinates if not found yet
+      if (!foundLocationCoordinates && message.sender === "bot" && message.locationCoordinates) {
+        console.log("Found locationCoordinates in message:", message.locationCoordinates)
+        setCurrentLocationCoordinates(message.locationCoordinates)
+        foundLocationCoordinates = true
+      }
+
+      // If both are found, we can stop searching
+      if (foundGeometryCode && foundLocationCoordinates) {
+        break
       }
     }
 
-    // If no geometryCODE found, clear the current one
-    setCurrentGeometryCode(undefined)
+    // If no geometryCODE found in any message, clear the current one
+    if (!foundGeometryCode) {
+      setCurrentGeometryCode(undefined)
+    }
+
+    // If no locationCoordinates found in any message, clear the current one
+    if (!foundLocationCoordinates) {
+      setCurrentLocationCoordinates(undefined)
+    }
   }, [messages])
 
   useEffect(() => {
-    extractGeometryCode()
-  }, [extractGeometryCode])
+    extractDataFromMessages()
+  }, [extractDataFromMessages])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -184,7 +228,7 @@ export function ChatContainer({
                 </div>
                 <div className={`${bubbleColor} p-3 rounded-lg shadow-sm flex items-center`}>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  <p className="text-sm">Processing your request...</p>
+                  <p className="text-sm">Thinking...</p>
                 </div>
               </div>
             )}
@@ -222,6 +266,8 @@ export function ChatContainer({
           onMarkerClick={onMarkerClick}
           onOpenFullMap={onOpenFullMap}
           geometryCode={currentGeometryCode}
+          locationCoordinates={currentLocationCoordinates}
+          disasterAreas={disasterAreas}
         />
       </div>
     </div>

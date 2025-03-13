@@ -59,10 +59,10 @@
     "vaul": "^0.9.6",
     "zod": "^3.24.1",
     "@emotion/is-prop-valid": "latest",
-    "mapbox-gl": "latest",
-    "@mapbox/polyline": "latest",
-    "framer-motion": "latest",
     "map-component": "latest",
+    "@mapbox/polyline": "latest",
+    "mapbox-gl": "latest",
+    "framer-motion": "latest",
     "uuid": "latest"
   },
   "devDependencies": {

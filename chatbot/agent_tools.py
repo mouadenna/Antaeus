@@ -21,7 +21,7 @@ class LocationResponse(BaseModel):
     longitude: float
 
 def get_current_weather(location: str, format: str = "celsius") -> Dict[str, Any]:
-    api_key = "c13887cebc8d2dd57383cf3e897bcdf6"
+    api_key = "openweathermap_api_key"
     base_url = "http://api.openweathermap.org/data/2.5/weather"
     params = {"appid": api_key, "units": "metric" if format.lower() == "celsius" else "imperial"}
 

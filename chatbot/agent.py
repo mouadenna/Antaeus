@@ -16,6 +16,7 @@ class AgentResponse(BaseModel):
     output: str = Field(description="Natural language response from the agent.")
     image: Optional[str] = Field(default=None, description="URL of any image required.")
     geometryCode: Optional[str] = Field(default=None, description="Encoded geometry data.")
+    locationCoordinates: Optional[Dict[str, str]] = Field(default=None, description="Coordinates in the format {'latitude': '', 'longitude': ''}.")
 
 def initialize_agent_executor():
     try:
@@ -64,20 +65,22 @@ def initialize_agent_executor():
         llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
-            api_key="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"        
+            api_key="OPENAI_API_KEY"
         )
 
         # Custom system prompt instructing the model to format responses correctly
         system_message = """
-        You are a helpful assistant. Use the tools available to answer the user's questions.
-        
-        IMPORTANT: Your final response MUST be structured as a JSON object with these fields:
-        1. "output": Your natural language response to the user
-        2. "image": URL of any image (or null if no image)
-        3. "geometryCode": Any geometry or route data (or null if none)
-        
-        When handling route data, extract any encoded geometry strings and include them in the geometryCode field.
+        You are a helpful assistant. Use the available tools to answer the user's questions.
+
+        IMPORTANT: Your final response MUST be structured as a JSON object with the following fields:
+        1. "output": Your natural language response to the user.
+        2. "image": The URL of any relevant image (or null if no image is provided).
+        3. "geometryCode": Any geometry or route data (or null if none is available).
+        4. "locationCoordinates": Any coordinates, if applicable, in the following format:  {{"latitude": "","longitude": ""}}
+
+        When handling route data, extract any encoded geometry strings and include them in the "geometryCode" field.
         """
+
 
         # Define the prompt with enhanced instructions
         prompt = ChatPromptTemplate.from_messages(
@@ -119,7 +122,8 @@ def initialize_agent_executor():
                     return {
                         "output": raw_output,
                         "image": None,
-                        "geometryCode": None
+                        "geometryCode": None,
+                        "locationCoordinates":None
                     }
 
         # Initialize DirectJsonExecutor
@@ -131,11 +135,11 @@ def initialize_agent_executor():
         print(f"Error initializing agent executor: {error}")
         raise error
 
-# Example usage
 if __name__ == "__main__":
     agent_executor = initialize_agent_executor()
-    response = agent_executor.invoke({"input": "What's the safest route from Fes to tangier?"})
+    response = agent_executor.invoke({"input": "What is the location of disaster in Marrakech"})
     print("\nStructured Response:")
     print(f"Output: {response['output']}")
     print(f"Image URL: {response['image']}")
     print(f"Geometry Code: {response['geometryCode']}")
+    print(f"location Coordinates: {response['locationCoordinates']}")

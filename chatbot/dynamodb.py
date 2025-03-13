@@ -4,8 +4,8 @@ from decimal import Decimal
 
 
 session = boto3.Session(
-    aws_access_key_id="AKIASKGHJR3U4755NWYS",
-    aws_secret_access_key="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",
+    aws_access_key_id="aws_access_key_id",
+    aws_secret_access_key="aws_secret_access_key",
     region_name="us-east-1"
 )
 

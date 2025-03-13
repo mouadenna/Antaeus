@@ -5,7 +5,7 @@ import { ChatInput } from "./chat-input"
 import { FAQSuggestions } from "./faq-suggestions"
 import { MapPreview } from "./map-preview"
 import { ChatActions } from "./chat-actions"
-import type { MapMarker } from "../map-component"
+import type { MapMarker } from "./map-component"
 import { useState, useEffect, useCallback } from "react"
 
 // Define the message structure
@@ -16,10 +16,14 @@ interface Message {
   timestamp?: string
   geometryCODE?: string
   imageURL?: string
+  locationCoordinates?: {
+    latitude: string | number
+    longitude: string | number
+  }
 }
 
 interface ChatContainerProps {
-  messages: string[] | Message[]
+  messages: Message[]
   emergencyMode: boolean
   userRole: "user" | "admin"
   mapMarkers: MapMarker[]
@@ -32,6 +36,8 @@ interface ChatContainerProps {
   onNewChat: () => void
   onMarkerClick: (marker: MapMarker) => void
   onOpenFullMap: () => void
+  isLoading?: boolean
+  disasterAreas?: any // TODO: Define the type for disasterAreas
 }
 
 export function ChatContainer({
@@ -48,88 +54,70 @@ export function ChatContainer({
   onNewChat,
   onMarkerClick,
   onOpenFullMap,
+  isLoading = false,
+  disasterAreas,
 }: ChatContainerProps) {
   // Extract the latest geometryCODE from bot messages
   const [currentGeometryCode, setCurrentGeometryCode] = useState<string | undefined>(undefined)
+  // Extract the latest locationCoordinates from bot messages
+  const [currentLocationCoordinates, setCurrentLocationCoordinates] = useState<
+    | {
+        latitude: string | number
+        longitude: string | number
+      }
+    | undefined
+  >(undefined)
 
-  // Process messages to find the latest geometryCODE
-  const extractGeometryCode = useCallback(() => {
+  // Process messages to find the latest geometryCODE and locationCoordinates
+  const extractDataFromMessages = useCallback(() => {
     if (messages.length === 0) return
 
-    // Find the latest bot message with a geometryCODE
+    let foundGeometryCode = false
+    let foundLocationCoordinates = false
+
+    // Find the latest bot message with geometryCODE or locationCoordinates
     for (let i = messages.length - 1; i >= 0; i--) {
-      if (typeof messages[0] !== "string") {
-        const structuredMessages = messages as Message[]
+      const message = messages[i]
 
-        // Find the latest bot message with a geometryCODE
-        for (let i = structuredMessages.length - 1; i >= 0; i--) {
-          if (
-            structuredMessages[i].sender === "bot" &&
-            structuredMessages[i].geometryCODE &&
-            structuredMessages[i].geometryCODE.trim() !== ""
-          ) {
-            const code = structuredMessages[i].geometryCODE
-            console.log("Found geometryCODE in message:", code?.substring(0, 20) + "...")
-            setCurrentGeometryCode(code)
-            return
-          }
-        }
-
-        // If no geometryCODE found, clear the current one
-        setCurrentGeometryCode(undefined)
-      } else {
-        // Try to parse string messages to find geometryCODE
-        let foundCode = false
-
-        for (let i = messages.length - 1; i >= 0; i--) {
-          try {
-            const msgText = messages[i] as string
-            // Check if it's a JSON string
-            if (msgText.startsWith("{") && msgText.endsWith("}")) {
-              const msgObj = JSON.parse(msgText)
-              if (msgObj.geometryCODE) {
-                console.log("Found geometryCODE in parsed message:", msgObj.geometryCODE.substring(0, 20) + "...")
-                setCurrentGeometryCode(msgObj.geometryCODE)
-                foundCode = true
-                break
-              }
-            }
-          } catch (e) {
-            // Not a valid JSON string, continue
-            console.log("Error parsing message:", e)
-          }
-        }
-
-        // If no geometryCODE found in any message, clear the current one
-        if (!foundCode) {
-          setCurrentGeometryCode(undefined)
-        }
+      // Check for geometryCODE if not found yet
+      if (
+        !foundGeometryCode &&
+        message.sender === "bot" &&
+        message.geometryCODE &&
+        message.geometryCODE.trim() !== ""
+      ) {
+        console.log("Found geometryCODE in message:", message.geometryCODE.substring(0, 20) + "...")
+        setCurrentGeometryCode(message.geometryCODE)
+        foundGeometryCode = true
       }
+
+      // Check for locationCoordinates if not found yet
+      if (!foundLocationCoordinates && message.sender === "bot" && message.locationCoordinates) {
+        console.log("Found locationCoordinates in message:", message.locationCoordinates)
+        setCurrentLocationCoordinates(message.locationCoordinates)
+        foundLocationCoordinates = true
+      }
+
+      // If both are found, we can stop searching
+      if (foundGeometryCode && foundLocationCoordinates) {
+        break
+      }
+    }
+
+    // If no geometryCODE found in any message, clear the current one
+    if (!foundGeometryCode) {
+      setCurrentGeometryCode(undefined)
+    }
+
+    // If no locationCoordinates found in any message, clear the current one
+    if (!foundLocationCoordinates) {
+      setCurrentLocationCoordinates(undefined)
     }
   }, [messages])
 
   useEffect(() => {
-    extractGeometryCode()
-  }, [extractGeometryCode])
-
-  // Process messages for display
-  const processedMessages = Array.isArray(messages)
-    ? messages.map((msg) => {
-        if (typeof msg === "string") {
-          try {
-            return JSON.parse(msg)
-          } catch (e) {
-            // If it's not valid JSON, create a basic message object
-            return {
-              text: msg,
-              sender: msg.includes("User:") ? "user" : "bot",
-              timestamp: new Date().toISOString(),
-            }
-          }
-        }
-        return msg
-      })
-    : []
+    extractDataFromMessages()
+  }, [extractDataFromMessages])
 
   return (
     <div className="flex flex-col h-full">
@@ -145,7 +133,7 @@ export function ChatContainer({
           <div className="flex-grow overflow-hidden flex flex-col">
             {messages.length > 0 ? (
               <div className="flex-grow overflow-y-auto">
-                <ChatMessages messages={processedMessages} bubbleColor={bubbleColor} />
+                <ChatMessages messages={messages} bubbleColor={bubbleColor} />
               </div>
             ) : (
               <div className="flex-grow overflow-y-auto">
@@ -158,13 +146,15 @@ export function ChatContainer({
           </div>
         </div>
 
-        <div className="w-full md:w-1/2 h-[300px] md:h-full mt-4 md:mt-0 md:ml-4">
+        <div className="w-full md:w-2/5 h-[250px] md:h-full">
           <MapPreview
             markers={mapMarkers}
             currentDisaster={currentDisaster}
             onMarkerClick={onMarkerClick}
             onOpenFullMap={onOpenFullMap}
             geometryCode={currentGeometryCode}
+            locationCoordinates={currentLocationCoordinates}
+            disasterAreas={disasterAreas}
           />
         </div>
       </div>
