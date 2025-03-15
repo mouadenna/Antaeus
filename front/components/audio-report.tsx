@@ -32,7 +32,6 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
   const audioChunksRef = useRef<Blob[]>([])
   const timerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // Start recording
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -53,14 +52,12 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
         setAudioBlob(audioBlob)
         setAudioUrl(audioUrl)
 
-        // Start processing the audio
-        processAudio()
+        processAudio(audioBlob)
       }
 
       mediaRecorder.start()
       setIsRecording(true)
 
-      // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime((prev) => prev + 1)
       }, 1000)
@@ -69,24 +66,20 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
     }
   }
 
-  // Stop recording
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
 
-      // Stop timer
       if (timerRef.current) {
         clearInterval(timerRef.current)
         timerRef.current = null
       }
 
-      // Stop all audio tracks
       mediaRecorderRef.current.stream.getTracks().forEach((track) => track.stop())
     }
   }
 
-  // Format time as MM:SS
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60)
       .toString()
@@ -95,34 +88,55 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
     return `${mins}:${secs}`
   }
 
-  // Process the audio (simulate AI processing)
-  const processAudio = () => {
-    // Simulate transcription
+  const processAudio = async (audioBlob: Blob) => {
     setProcessingStage("transcribing")
-    simulateProgress(0, 33, () => {
-      // Simulate a transcription result
-      const simulatedTranscription =
-        "I'm trapped in a hotel in Al Haouz, a region near Marrakech, that has been heavily affected by the earthquake. The hotel structure is severely damaged, and aftershocks are making it worse. The roads are blocked by debris, and escape is impossible. There are three of us here, including a child, and we are running out of supplies. We urgently need rescue assistance!"
-      setTranscription(simulatedTranscription)
+    simulateProgress(0, 33, async () => {
+      const formData = new FormData()
+      formData.append("file", audioBlob, "recording.wav")
 
-      // Simulate information extraction
-      setProcessingStage("extracting")
-      simulateProgress(33, 66, () => {
-        // Simulate extracted information
-        setExtractedLocation("Al Haouz, near Marrakech, Morocco")
-        setExtractedEmergency("Earthquake")
-        setExtractedSeverity("Critical")
-
-        // Simulate verification
-        setProcessingStage("verifying")
-        simulateProgress(66, 100, () => {
-          setProcessingStage("completed")
+      try {
+        const response = await fetch("https://alive-cheetah-precisely.ngrok-free.app/voice/process-audio/", {
+          method: "POST",
+          body: formData,
+          headers: {
+            // Add any required headers here, such as authentication tokens
+          },
         })
-      })
+
+        if (!response.ok) {
+          throw new Error("Failed to process audio")
+        }
+
+        const data = await response.json()
+
+        // Assuming the API returns the following structure:
+        // {
+        //   transcription: "Transcribed text",
+        //   location: "Extracted location",
+        //   emergency: "Extracted emergency type",
+        //   severity: "Extracted severity level"
+        // }
+
+        setTranscription(data.transcription)
+
+        setProcessingStage("extracting")
+        simulateProgress(33, 66, () => {
+          setExtractedLocation(data.location)
+          setExtractedEmergency(data.emergency)
+          setExtractedSeverity(data.severity)
+
+          setProcessingStage("verifying")
+          simulateProgress(66, 100, () => {
+            setProcessingStage("completed")
+          })
+        })
+      } catch (error) {
+        console.error("Error processing audio:", error)
+        setProcessingStage("error")
+      }
     })
   }
 
-  // Simulate progress for a process
   const simulateProgress = (start: number, end: number, callback: () => void) => {
     let current = start
     const interval = setInterval(() => {
@@ -136,11 +150,9 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
     }, 200)
   }
 
-  // Submit the report
   const submitReport = () => {
     setIsSubmitting(true)
 
-    // Simulate sending to database
     setTimeout(() => {
       const reportData = {
         audioUrl,
@@ -159,7 +171,6 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
     }, 1500)
   }
 
-  // Reset the form
   const resetForm = () => {
     setAudioBlob(null)
     setAudioUrl(null)
@@ -173,7 +184,6 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
     setIsSubmitted(false)
   }
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -367,4 +377,3 @@ export default function AudioReport({ onReportSubmitted }: AudioReportProps) {
     </div>
   )
 }
-

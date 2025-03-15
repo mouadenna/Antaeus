@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 
 // Mapbox access token
-export const MAPBOX_ACCESS_TOKEN =
-  "MAPBOX_ACCESS_TOKEN"
+export const MAPBOX_ACCESS_TOKEN =process.env.MAPBOX_ACCESS_TOKEN//"MAPBOX_ACCESS_TOKEN"
 
 // Define the marker structure
 export interface MapMarker {

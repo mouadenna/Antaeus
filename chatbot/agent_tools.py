@@ -180,4 +180,4 @@ def query_disaster_data(query: str) -> Dict[str, Any]:
     except Exception as error:
         return {"error": str(error), "details": "Failed to query disaster data"}
     
-print(query_disaster_data("disaster in Marrakech"))
+#print(query_disaster_data("disaster in Marrakech"))

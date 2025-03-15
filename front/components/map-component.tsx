@@ -8,8 +8,7 @@ import { X, Users, Home, AlertTriangle, ArrowUp, Package } from "lucide-react"
 import type { DisasterFeature } from "./active-disasters"
 
 // Mapbox access token
-export const MAPBOX_ACCESS_TOKEN =
-  "MAPBOX_ACCESS_TOKEN"
+export const MAPBOX_ACCESS_TOKEN =process.env.MAPBOX_ACCESS_TOKEN //"MAPBOX_ACCESS_TOKEN"
 
 // Define the marker structure
 export interface MapMarker {

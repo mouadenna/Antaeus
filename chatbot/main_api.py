@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, Dict
 import uvicorn
 from agent import initialize_agent_executor
+from voice_api import router as voice_router
 
 app = FastAPI()
 
@@ -54,6 +55,10 @@ async def get_response(request: RequestModel):
 @app.options("/response")
 async def options_response():
     return {}
+
+
+app.include_router(voice_router, prefix="/voice")
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

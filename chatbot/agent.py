@@ -7,10 +7,11 @@ from langchain_core.runnables import RunnablePassthrough
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
 from agent_tools import get_current_weather, get_safest_routes, get_location_mapbox,query_disaster_data
-
 import datetime
 import json
 import re
+import os
+from dotenv import load_dotenv
 
 class AgentResponse(BaseModel):
     output: str = Field(description="Natural language response from the agent.")
@@ -62,10 +63,13 @@ def initialize_agent_executor():
         ]
 
         # Initialize LLM with OpenAI API
+        # Load environment variables from .env file
+        load_dotenv()
+        
         llm = ChatOpenAI(
             model="gpt-4o-mini",
             temperature=0,
-            api_key="OPENAI_API_KEY"
+            api_key=os.getenv("OPENAI_API_KEY")
         )
 
         # Custom system prompt instructing the model to format responses correctly
@@ -108,7 +112,7 @@ def initialize_agent_executor():
                 # Try to parse it as JSON directly
                 try:
                     # Find JSON in output (in case there's text around it)
-                    import re
+
                     json_match = re.search(r'({.*})', raw_output.replace('\n', ''))
                     if json_match:
                         json_str = json_match.group(1)
